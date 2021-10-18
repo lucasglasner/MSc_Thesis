@@ -366,9 +366,13 @@ var = [H20,H50,H80,sl_dgf.loc[tile_props.index],sl_ianigla.loc[tile_props.index]
 names = ["H20","H50","H80","DGF","HYPSOMETRY\nIANIGLA"]
 colors = plt.cm.get_cmap("tab10",len(names))(np.linspace(0,1,len(names)))
 ax = ax.ravel()
+# ax[4].plot([],[],ls=":",color="k",label="Linear\nRegression")
+ax[5].plot([],[],ls=":",color="r",label="$y\sim x$")
+
 for i in range(len(ax)-1):
     ax[i].scatter(sl_ianigla2.loc[tile_props.index],
-                  var[i],edgecolor="k",alpha=0.6,color=colors[i],zorder=3)
+                  var[i],edgecolor="k",alpha=0.6,color=colors[i],zorder=3,
+                  lw=0.4)
     m = linregress(sl_ianigla2.loc[tile_props.index],var[i])
     ax[i].plot(np.arange(800,4.5e3),
                np.arange(800,4.5e3)*m.slope+m.intercept,ls=":",color="k")
@@ -380,13 +384,14 @@ for i in range(len(ax)-1):
     ax[i].set_ylim(800,4.5e3)
     # ax[i].set_title(names[i],loc="left")
     ax[i].grid(True,ls=":")
-    ax[5].scatter([],[],label=names[i],color=colors[i],edgecolor="k")
+    ax[5].scatter([],[],label=names[i],color=colors[i],edgecolor="k",lw=0.4)
 
 
 # for i in [1,2,4]:
 #     ax[i].set_yticklabels("")
 ax[5].axis("off")
-ax[5].legend(frameon=False,loc=(-0.05,0.25))
+# ax[4].legend(frameon=False,loc=(1.85,0.77))
+ax[5].legend(frameon=False,loc=(-0.05,0.12),ncol=1)
 # ax[5].scatter(sl_ianigla.loc[tile_props.index],dH,edgecolor="k",alpha=0.6)
 # ax[5].set_title("dH",loc="left")
 
@@ -394,18 +399,6 @@ ax[4].set_xlabel("Snow Limit IANIGLA (m)")
 
 plt.savefig("plots/maipomanzano/scatterplots_snowlimitS.pdf",dpi=150,bbox_inches="tight")
 #%%
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
