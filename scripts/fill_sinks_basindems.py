@@ -17,6 +17,7 @@ import gdal
 
 #%%
 inputfiles_path   = "datos/topography/basins/"
+os.system("mkdir "+inputfiles_path+"filled_sinks")
 outputfiles_path  = "datos/topography/basins/filled_sinks/"
 basins            =  ["Rio Aconcagua En Chacabuquito", 
                       "Rio Choapa En Lamahuida",
@@ -48,6 +49,9 @@ for basin in basins:
         os.system("rm -rf "+inputfiles_path+basin+".nc")
         os.system("mv "+outputfiles_path+basin+".nc "+inputfiles_path+basin+".nc")
     except:
+        pass
         os.system("rm -rf "+outputfiles_path+"*[!.nc]")
         os.system("rm -rf "+inputfiles_path+basin+".nc")
         os.system("mv "+outputfiles_path+basin+".nc "+inputfiles_path+basin+".nc")
+    
+os.system("rm -rf "+outputfiles_path)

@@ -148,17 +148,18 @@ colors = cmocean.cm.ice(np.linspace(0.15,.85,len(fSCA_limits)))
 y = list(map(lambda x: int(x)-1,elevation_bands))
 x=pd.cut(y,y).categories.values
 x=list(map(lambda j: str(j),x))
+x=elevation_bands[:-1]
 for i in range((terra_singleimage.shape[1])):
-    ax[0].step(x,terra_singleimage[:,i],color=colors[i],alpha=1,where="mid")
+    ax[0].step(x,terra_singleimage[:,i],color=colors[i],alpha=1,where="post")
     lb = "$fSCA_{xy}\geq$"+str(fSCA_limits[i])+"%"
-    ax[1].step(x,aqua_singleimage[:,i],color=colors[i],alpha=1,where="mid",label=lb)
+    ax[1].step(x,aqua_singleimage[:,i],color=colors[i],alpha=1,where="post",label=lb)
 
 for axis in ax:
     plt.xticks(rotation=45)
-    axis.xaxis.set_major_locator(MultipleLocator(6))
-    axis.xaxis.set_minor_locator(MultipleLocator(1))
+    axis.xaxis.set_major_locator(MultipleLocator(250))
+    axis.xaxis.set_minor_locator(MultipleLocator(50))
     axis.grid(True,ls=":",which="major")
-    axis.set_xlim(0,70)
+    axis.set_xlim(1e3,4.5e3)
     axis.set_yticks(np.arange(0,1.1,0.1))
 lg=ax[1].legend(loc="lower right",title="Snow threshold",frameon=True)
 

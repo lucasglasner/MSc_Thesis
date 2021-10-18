@@ -153,11 +153,12 @@ except:
 # and where last rainfall in the basin outlet happen in less than 30 days
 # =========================================================================
 
-tile_props = tile_props[tile_props["%clouds"]<0.01].dropna()
+tile_props = tile_props[tile_props["%clouds"]<0.05].dropna()
 tile_props = tile_props[tile_props["%SCA"]>0.5].dropna()
 tile_props = tile_props[tile_props["timetolastrain"]<30].dropna()
 fSCA   = fSCA.sel(time=tile_props.index)
 # fSCA=fSCA.sel(time=slice(*["2005-10","2005-10"]))
+
 
 #%%
 # =============================================================================
@@ -199,39 +200,10 @@ except:
             fSCA_bands.iloc[j,i] = snow_band.sum()/len(snow_band)
     fSCA_bands.to_csv("datos/modis/modis_"+sensor+"_fSCA_bands.csv")
     
-# =============================================================================
-# Cut distribution curves to 4000 height maximum and minimum band with less
-# less than 0.2 snow cover (to stay with tiles only where the snow limit
-# is IN the basin)
-# =============================================================================
 fSCA_bands = fSCA_bands.T.loc[tile_props.index].T
-fSCA_bands = fSCA_bands.rolling(5,center=True,min_periods=2,axis=0).mean()
-fSCA_bands = fSCA_bands.iloc[fSCA_bands.index<4.5e3,:]
-fSCA_bands = fSCA_bands.iloc[:,(fSCA_bands.min()<0.2).values]
+fSCA_bands = fSCA_bands.iloc[:,(fSCA_bands.min()<0.1).values]
 elevation_bands = fSCA_bands.index.values
 tile_props = tile_props.loc[fSCA_bands.columns]
-#%%
-
-var = fSCA_bands.iloc[::-1,:]
-H50 = np.ones((var.shape[1]))*np.nan
-H20 = np.ones((var.shape[1]))*np.nan
-H80 = np.ones((var.shape[1]))*np.nan
-
-for i in range(var.shape[1]):
-    interp = interp1d(var.iloc[:,i].values,
-                      var.index,assume_sorted=False)
-    if var.iloc[:,i].values.min()<0.2:
-        if var.iloc[:,i].values.max()>0.8:
-            H50[i] = interp(0.5)
-            H20[i] = interp(0.2)
-            H80[i] = interp(0.8)
-
-H50 = pd.Series(H50,index=tile_props.index)
-H20 = pd.Series(H20,index=tile_props.index)
-H80 = pd.Series(H80,index=tile_props.index)
-# dH = pd.DataFrame(np.gradient(fSCA_bands)[0]).rolling(10,center=True,min_periods=2).mean().max(axis=0).values
-dH = H80-H20
-
 #%%
 
 #Dates of tiles to show, and respective snowband distribution
@@ -246,7 +218,7 @@ colors=["darkorange","limegreen","darkviolet"] #color for plots
 y = list(map(lambda x: int(x)-1,elevation_bands))
 x=pd.cut(y,y).categories.values
 x=list(map(lambda j: str(j),x))
-
+x = elevation_bands[:-1].astype(int)//10*10
 #create figure
 fig = plt.figure(figsize=(5,5))
 
@@ -276,27 +248,24 @@ for i in range(3):
     #plot curves
     label = dates[i]+": $\Delta t_{LAST\_RAIN}$: "
     label = label+str(tile_props["timetolastrain"].loc[dates[i]].item())+" days"
-    ax0.step(np.arange(len(x)),var.iloc[:-1,i].values,where="mid",color=colors[i],label=label)
+    ax0.step(x,var.iloc[:-1,i].values,where="post",color=colors[i],label=label)
     
     #plot hipsometry method SL ianigla
     sl_data   = sl_ianigla.loc[dates[i]]
     interp    = interp1d(elevation_bands,var.iloc[:,i])   
-    interp2   = interp1d(var.iloc[:-1,i],np.arange(len(x)))
-    ax0.scatter(interp2(interp(sl_data)),interp(sl_data),color=colors[i],
+    ax0.scatter(sl_data,interp(sl_data),color=colors[i],
                 edgecolor="k",marker="D",s=50,zorder=3,alpha=0.8)
 
     #plot SL ianigla
     sl_data   = sl_ianigla2.loc[dates[i]]
     interp    = interp1d(elevation_bands,var.iloc[:,i])   
-    interp2   = interp1d(var.iloc[:-1,i],np.arange(len(x)))
-    ax0.scatter(interp2(interp(sl_data)),interp(sl_data),color=colors[i],
+    ax0.scatter(sl_data,interp(sl_data),color=colors[i],
                 edgecolor="k",marker="s",s=50,zorder=3,alpha=0.8)
     
     #plot hypsometry method DGF
     sl_data   = sl_dgf.loc[dates[i]]
     interp    = interp1d(elevation_bands,var.iloc[:,i])   
-    interp2   = interp1d(var.iloc[:-1,i],np.arange(len(x)))
-    ax0.scatter(interp2(interp(sl_data)),interp(sl_data),color=colors[i],
+    ax0.scatter(sl_data,interp(sl_data),color=colors[i],
                 edgecolor="k",marker="o",s=50,zorder=3,alpha=0.8)
     
     #H50
@@ -312,18 +281,18 @@ ax1.scatter([],[],marker="s",label="IANIGLA",color="w",edgecolor="k")
 ax1.scatter([],[],marker="D",label="HYPSOMETRY\nIANIGLA",color="w",edgecolor="k")
 # ax1.scatter([],[],marker="P",label="50%",color="w",edgecolor="k")
 
-ax1.legend(frameon=False,loc=(-1.9,2.5),labelspacing=0.7)
+ax1.legend(frameon=False,loc=(-2.35,2.5),labelspacing=0.7)
 
 # ax0.scatter([],[],marker="o",label="SL_Hypsometry_DGF")
   
-ax0.set_xticks(np.arange(len(x)))
-ax0.set_xticklabels(x)
-ax0.xaxis.set_major_locator(MultipleLocator(6))
-ax0.xaxis.set_minor_locator(MultipleLocator(1))
+# ax0.set_xticks(x)
+# ax0.set_xticklabels(x)
+ax0.xaxis.set_major_locator(MultipleLocator(250))
+ax0.xaxis.set_minor_locator(MultipleLocator(50))
 ax0.grid(True,ls=":",which="major")
-ax0.set_xlim(0,70)
+ax0.set_xlim(1e3,4.5e3)
 ax0.tick_params(axis="x",rotation=45)
-ax0.legend(frameon=False,loc=(-0.15,1),ncol=1)
+ax0.legend(frameon=False,loc=(-0.18,1),ncol=1)
 ax0.set_xlabel("Elevation Band (m)",fontsize=12)
 ax0.set_ylabel("Probability of snow covered band",fontsize=12)
 ax0.set_yticks(np.arange(0,1.1,0.1))
@@ -339,14 +308,51 @@ cb = fig.colorbar(mpl.cm.ScalarMappable(norm=norm,cmap=cmap),cax=cax)
 cb.set_label("Fraction of Snow Cover Area (%)",fontsize=10)
 
 
-plt.savefig("plots/maipomanzano/timedifferences_fSCAstudy.pdf",dpi=150,bbox_inches="tight")
+# plt.savefig("plots/maipomanzano/timedifferences_fSCAstudy.pdf",dpi=150,bbox_inches="tight")
     
     
+
 #%%
 
 # =============================================================================
+# Cut distribution curves to 5000 height maximum and minimum band with less
+# less than 0.2 snow cover (to stay with tiles only where the snow limit
+# is IN the basin)
+# =============================================================================
+
+# fSCA_bands = fSCA_bands.rolling(5,center=True,min_periods=2,axis=0).mean()
+
+
+fSCA_bands = fSCA_bands.iloc[fSCA_bands.index<=4.5e3,:]
+
+
+var = fSCA_bands.iloc[:,:]
+H50 = np.ones((var.shape[1]))*np.nan
+H20 = np.ones((var.shape[1]))*np.nan
+H80 = np.ones((var.shape[1]))*np.nan
+
+for i in range(var.shape[1]):
+    interp = interp1d(var.iloc[:,i].values,
+                      var.index,assume_sorted=False)
+    # if var.iloc[:,i].values.min()<0.2:
+    #     if var.iloc[:,i].values.max()>0.8:
+    H50[i] = interp(0.5)
+    H20[i] = interp(0.2)
+    H80[i] = interp(var.max(axis=0)[i]*0.8)
+    # H80[i] = interp(var.iloc[:,i].sort_values().max()*0.8)
+
+H50 = pd.Series(H50,index=tile_props.index)
+H20 = pd.Series(H20,index=tile_props.index)
+H80 = pd.Series(H80,index=tile_props.index)
+# H80  = fSCA_bands.max(axis=0)*0.8
+# dH = pd.DataFrame(np.gradient(fSCA_bands)[0]).rolling(10,center=True,min_periods=2).mean().max(axis=0).values
+dH = H80-H20
+
+#%%
+# =============================================================================
 # 
 # =============================================================================
+from scipy.stats import linregress
 
 tile_props["dH"]  = dH
 tile_props["H50"] = H50
@@ -354,29 +360,39 @@ tile_props["H80"] = H80
 tile_props["H20"] = H20
 
 
-fig,ax = plt.subplots(2,3,sharex=True,sharey=False,figsize=(8,4))
+fig,ax = plt.subplots(2,3,sharex=True,sharey=True,figsize=(8,4))
 fig.tight_layout(pad=1)
-var = [H20,H50,H80,sl_dgf.loc[tile_props.index],sl_ianigla2.loc[tile_props.index]]
-names = ["H20","H50","H80","DGF","IANIGLA"]
+var = [H20,H50,H80,sl_dgf.loc[tile_props.index],sl_ianigla.loc[tile_props.index]]
+names = ["H20","H50","H80","DGF","HYPSOMETRY\nIANIGLA"]
+colors = plt.cm.get_cmap("tab10",len(names))(np.linspace(0,1,len(names)))
 ax = ax.ravel()
 for i in range(len(ax)-1):
-    ax[i].scatter(sl_ianigla.loc[tile_props.index],
-                  var[i],edgecolor="k",alpha=0.6)
+    ax[i].scatter(sl_ianigla2.loc[tile_props.index],
+                  var[i],edgecolor="k",alpha=0.6,color=colors[i],zorder=3)
+    m = linregress(sl_ianigla2.loc[tile_props.index],var[i])
+    ax[i].plot(np.arange(800,4.5e3),
+               np.arange(800,4.5e3)*m.slope+m.intercept,ls=":",color="k")
+    t=ax[i].text(x=0.02,y=0.75,
+                 s="y~"+"{:.2f}".format(m.slope)+"x"+"{:.2f}".format(m.intercept)+"\n$R^2$: "+"{:.1%}".format(m.rvalue**2),
+                 transform=ax[i].transAxes)
     ax[i].plot([1e3,7e3],[1e3,7e3],color="red",ls=":")
-    ax[i].set_xlim(2.0e3,3.9e3)
-    ax[i].set_ylim(2.0e3,3.9e3)
-    ax[i].set_title(names[i],loc="left")
+    ax[i].set_xlim(800,4.5e3)
+    ax[i].set_ylim(800,4.5e3)
+    # ax[i].set_title(names[i],loc="left")
+    ax[i].grid(True,ls=":")
+    ax[5].scatter([],[],label=names[i],color=colors[i],edgecolor="k")
 
 
-for i in [1,2,4]:
-    ax[i].set_yticklabels("")
-# ax[5].axis("off")
-ax[5].scatter(sl_ianigla.loc[tile_props.index],dH,edgecolor="k",alpha=0.6)
-ax[5].set_title("dH",loc="left")
+# for i in [1,2,4]:
+#     ax[i].set_yticklabels("")
+ax[5].axis("off")
+ax[5].legend(frameon=False,loc=(-0.05,0.25))
+# ax[5].scatter(sl_ianigla.loc[tile_props.index],dH,edgecolor="k",alpha=0.6)
+# ax[5].set_title("dH",loc="left")
 
-ax[4].set_xlabel("SL_HYPSOMETRY")
+ax[4].set_xlabel("Snow Limit IANIGLA (m)")
 
-plt.savefig("plots/maipomanzano/scatterplots.pdf",dpi=150,bbox_inches="tight")
+plt.savefig("plots/maipomanzano/scatterplots_snowlimitS.pdf",dpi=150,bbox_inches="tight")
 #%%
 
 

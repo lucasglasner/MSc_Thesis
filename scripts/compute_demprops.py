@@ -15,7 +15,7 @@ import os
 
 #%%
 inputfiles_path   = "datos/topography/basins/"
-outputfiles_path  = "datos/topography/basins/aspect/"
+outputfiles_path  = "datos/topography/basins/"
 basins            =  ["Rio Aconcagua En Chacabuquito", 
                       "Rio Choapa En Lamahuida",
                       "Rio Elqui En Algarrobal",
@@ -33,13 +33,19 @@ basins            =  ["Rio Aconcagua En Chacabuquito",
                       "Rio ÑUble En San Fabian"]
 rasters=["aspect","accumulation","flowdirection"]
 #%%
-os.system("rm -rf "+outputfiles_path+"*.nc")
+# os.system("rm -rf "+outputfiles_path+"*.nc")
 for basin in basins:
     try:
         basin = basin.replace(" ","")
-        program="gdaldem aspect "
-        os.system(program+
-                  inputfiles_path+basin+".nc "+
-                  outputfiles_path+basin+".nc")
+        if ~os.path.isfile(outputfiles_path+"aspect/"+basin+".nc"):
+            program="gdaldem aspect "
+            os.system(program+
+                      inputfiles_path+basin+".nc "+
+                      outputfiles_path+"aspect/"+basin+".nc")
+        if ~os.path.isfile(outputfiles_path+"slope/"+basin+".nc"):
+            program="gdaldem slope "
+            os.system(program+
+                      inputfiles_path+basin+".nc "+
+                      outputfiles_path+"slope/"+basin+".nc -p")
     except:
         pass
