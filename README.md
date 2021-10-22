@@ -14,33 +14,4 @@ scripts are programmed to open and store data in a "data folder" (heavy) not com
 #### Plain text summary
 
 
-#### ASCII Project tree
-
-.
-├── burocracia
-├── datos
-│   ├── era5land
-│   │   └── maipo
-│   ├── estaciones
-│   │   └── dgf
-│   ├── ianigla
-│   ├── landcover
-│   │   └── basins
-│   ├── modis
-│   ├── stodomingo
-│   ├── topography
-│   │   └── basins
-│   │       ├── aspect
-│   │       └── hipso
-│   └── vector
-├── plots
-│   ├── esquemas
-│   ├── maipomanzano
-│   └── terrain
-├── qgis
-├── scripts
-└── tmp
-
-23 directories
-
 
