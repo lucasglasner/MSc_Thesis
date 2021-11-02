@@ -323,21 +323,21 @@ cb.set_label("Fraction of Snow Cover Area (%)",fontsize=10)
 # fSCA_bands = fSCA_bands.rolling(5,center=True,min_periods=2,axis=0).mean()
 
 
-fSCA_bands = fSCA_bands.iloc[fSCA_bands.index<=4.5e3,:]
+# fSCA_bands = fSCA_bands.iloc[fSCA_bands.index<=5.0e3,:]
 
 
-var = fSCA_bands.iloc[:,:]
+var = fSCA_bands.iloc[:,:].iloc[fSCA_bands.index<=4.5e3,:]
 H50 = np.ones((var.shape[1]))*np.nan
 H20 = np.ones((var.shape[1]))*np.nan
 H80 = np.ones((var.shape[1]))*np.nan
 
 for i in range(var.shape[1]):
     interp = interp1d(var.iloc[:,i].values,
-                      var.index,assume_sorted=False)
+                      var.index,assume_sorted=False,fill_value="extrapolate")
     # if var.iloc[:,i].values.min()<0.2:
     #     if var.iloc[:,i].values.max()>0.8:
-    H50[i] = interp(0.5)
-    H20[i] = interp(0.2)
+    H50[i] = interp(0.5*var.max(axis=0)[i])
+    H20[i] = interp(0.2*var.max(axis=0)[i])
     H80[i] = interp(var.max(axis=0)[i]*0.8)
     # H80[i] = interp(var.iloc[:,i].sort_values().max()*0.8)
 
@@ -373,15 +373,15 @@ for i in range(len(ax)-1):
     ax[i].scatter(sl_ianigla2.loc[tile_props.index],
                   var[i],edgecolor="k",alpha=0.6,color=colors[i],zorder=3,
                   lw=0.4)
-    m = linregress(sl_ianigla2.loc[tile_props.index],var[i])
-    ax[i].plot(np.arange(800,4.5e3),
-               np.arange(800,4.5e3)*m.slope+m.intercept,ls=":",color="k")
-    t=ax[i].text(x=0.02,y=0.75,
-                 s="y~"+"{:.2f}".format(m.slope)+"x"+"{:.2f}".format(m.intercept)+"\n$R^2$: "+"{:.1%}".format(m.rvalue**2),
-                 transform=ax[i].transAxes)
+    # m = linregress(sl_ianigla2.loc[tile_props.index],var[i])
+    # ax[i].plot(np.arange(800,4.5e3),
+    #            np.arange(800,4.5e3)*m.slope+m.intercept,ls=":",color="k")
+    # t=ax[i].text(x=0.02,y=0.75,
+    #              s="y~"+"{:.2f}".format(m.slope)+"x"+"{:.2f}".format(m.intercept)+"\n$R^2$: "+"{:.1%}".format(m.rvalue**2),
+    #              transform=ax[i].transAxes)
     ax[i].plot([1e3,7e3],[1e3,7e3],color="red",ls=":")
-    ax[i].set_xlim(800,4.5e3)
-    ax[i].set_ylim(800,4.5e3)
+    ax[i].set_xlim(800,6.5e3)
+    ax[i].set_ylim(800,6.5e3)
     # ax[i].set_title(names[i],loc="left")
     ax[i].grid(True,ls=":")
     ax[5].scatter([],[],label=names[i],color=colors[i],edgecolor="k",lw=0.4)
