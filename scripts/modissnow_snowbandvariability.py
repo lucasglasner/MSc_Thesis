@@ -154,8 +154,8 @@ except:
 # =========================================================================
 
 tile_props = tile_props[tile_props["%clouds"]<0.05].dropna()
-tile_props = tile_props[tile_props["%SCA"]>0.5].dropna()
-tile_props = tile_props[tile_props["timetolastrain"]<30].dropna()
+# tile_props = tile_props[tile_props["%SCA"]>0.5].dropna()
+# tile_props = tile_props[tile_props["timetolastrain"]<30].dropna()
 fSCA   = fSCA.sel(time=tile_props.index)
 # fSCA=fSCA.sel(time=slice(*["2005-10","2005-10"]))
 
@@ -201,7 +201,8 @@ except:
     fSCA_bands.to_csv("datos/modis/modis_"+sensor+"_fSCA_bands.csv")
     
 fSCA_bands = fSCA_bands.T.loc[tile_props.index].T
-fSCA_bands = fSCA_bands.iloc[:,(fSCA_bands.min()<0.1).values]
+# fSCA_bands = fSCA_bands.loc[fSCA_bands.index<4500,:]
+# fSCA_bands = fSCA_bands.iloc[:,(fSCA_bands.min()<0.1).values]
 elevation_bands = fSCA_bands.index.values
 tile_props = tile_props.loc[fSCA_bands.columns]
 #%%
@@ -326,24 +327,33 @@ cb.set_label("Fraction of Snow Cover Area (%)",fontsize=10)
 # fSCA_bands = fSCA_bands.iloc[fSCA_bands.index<=5.0e3,:]
 
 
-var = fSCA_bands.iloc[:,:].iloc[fSCA_bands.index<=4.5e3,:]
+var = fSCA_bands.loc[fSCA_bands.index<4.5e3,:]
 H50 = np.ones((var.shape[1]))*np.nan
 H20 = np.ones((var.shape[1]))*np.nan
 H80 = np.ones((var.shape[1]))*np.nan
 
 for i in range(var.shape[1]):
     interp = interp1d(var.iloc[:,i].values,
-                      var.index,assume_sorted=False,fill_value="extrapolate")
+                      var.index,assume_sorted=False)
     # if var.iloc[:,i].values.min()<0.2:
     #     if var.iloc[:,i].values.max()>0.8:
-    H50[i] = interp(0.5*var.max(axis=0)[i])
-    H20[i] = interp(0.2*var.max(axis=0)[i])
-    H80[i] = interp(var.max(axis=0)[i]*0.8)
+    try:
+        H50[i] = interp(0.5*var.max(axis=0)[i])
+    except:
+        H50[i] = np.nan
+    try:
+        H20[i] = interp(0.2*var.max(axis=0)[i])
+    except:
+        H20[i] = np.nan
+    try:
+        H80[i] = interp(0.8*var.max(axis=0)[i])
+    except:
+        H80[i] = np.nan
     # H80[i] = interp(var.iloc[:,i].sort_values().max()*0.8)
 
-H50 = pd.Series(H50,index=tile_props.index)
-H20 = pd.Series(H20,index=tile_props.index)
-H80 = pd.Series(H80,index=tile_props.index)
+H50 = pd.Series(H50,index=fSCA_bands.columns)
+H20 = pd.Series(H20,index=fSCA_bands.columns)
+H80 = pd.Series(H80,index=fSCA_bands.columns)
 # H80  = fSCA_bands.max(axis=0)*0.8
 # dH = pd.DataFrame(np.gradient(fSCA_bands)[0]).rolling(10,center=True,min_periods=2).mean().max(axis=0).values
 dH = H80-H20
@@ -362,7 +372,9 @@ tile_props["H20"] = H20
 
 fig,ax = plt.subplots(2,3,sharex=True,sharey=True,figsize=(8,4))
 fig.tight_layout(pad=1)
-var = [H20,H50,H80,sl_dgf.loc[tile_props.index],sl_ianigla.loc[tile_props.index]]
+fig.text(0,0.5,"Snow Limit height (m)",ha="center",va="center",rotation=90)
+var = [H20,H50,H80,sl_dgf.reindex(tile_props.index).loc[tile_props.index],
+       sl_ianigla.reindex(tile_props.index).loc[tile_props.index]]
 names = ["H20","H50","H80","DGF","HYPSOMETRY\nIANIGLA"]
 colors = plt.cm.get_cmap("tab10",len(names))(np.linspace(0,1,len(names)))
 ax = ax.ravel()
@@ -379,9 +391,9 @@ for i in range(len(ax)-1):
     # t=ax[i].text(x=0.02,y=0.75,
     #              s="y~"+"{:.2f}".format(m.slope)+"x"+"{:.2f}".format(m.intercept)+"\n$R^2$: "+"{:.1%}".format(m.rvalue**2),
     #              transform=ax[i].transAxes)
-    ax[i].plot([1e3,7e3],[1e3,7e3],color="red",ls=":")
-    ax[i].set_xlim(800,6.5e3)
-    ax[i].set_ylim(800,6.5e3)
+    ax[i].plot([1e2,7e3],[1e2,7e3],color="red",ls=":")
+    ax[i].set_xlim(0,7e3)
+    ax[i].set_ylim(0,7e3)
     # ax[i].set_title(names[i],loc="left")
     ax[i].grid(True,ls=":")
     ax[5].scatter([],[],label=names[i],color=colors[i],edgecolor="k",lw=0.4)
