@@ -33,8 +33,10 @@ cuenca = "RioMaipoEnElManzano"
 basin = gpd.read_file("datos/vector/"+cuenca+".shp")
 
 #Basin DEM
-dem = xr.open_dataset("datos/topography/basins/"+cuenca+"_regridmodis.nc",chunks="auto").Band1
-
+dem_full   = xr.open_dataset("datos/topography/basins/"+cuenca+".nc",chunks="auto").Band1
+dem        = xr.open_dataset("datos/topography/basins/"+cuenca+"_regridmodis.nc",chunks="auto").Band1
+dem_era5   = xr.open_dataset("datos/topography/basins/"+cuenca+"_ERA5LAND.nc",chunks="auto").z
+dem_cr2met = xr.open_dataset("datos/topography/basins/"+cuenca+"_CR2MET.nc",chunks="auto").Band1
 
 #Basin River Network
 rivers = gpd.read_file("datos/vector/red_hidrografica.shp")
@@ -52,6 +54,9 @@ aspect    = xr.open_dataset("datos/topography/basins/aspect/"+cuenca+".nc",chunk
 
 slope     = xr.open_dataset("datos/topography/basins/slope/"+cuenca+"_regridmodis.nc",chunks="auto").Band1  
 slope     = slope.where(slope<1e7).where(slope>0)/1e5
+
+
+
 
 #%%
 # =============================================================================
@@ -79,6 +84,9 @@ land_uses = {"Cropland":(100,200),
 #Elevation band width in meters
 dz   = 50
 tpix = (~np.isnan(dem.values)).sum()
+tpix_full   = (~np.isnan(dem_full.values)).sum()
+tpix_era5   = (~np.isnan(dem_era5.values)).sum()
+tpix_cr2met = (~np.isnan(dem_cr2met.values)).sum()
 #elevation bands
 elevation_bands = np.arange(dem.min()//10*10-2*dz,
                             dem.max()//10*10+2*dz,dz,
@@ -89,15 +97,58 @@ bands_size      = np.empty(len(elevation_bands))*np.nan
 #band mean slope
 bands_slope     = np.empty(len(elevation_bands))*np.nan
 #hypsometric curve
-hypso_curve     = np.empty(len(elevation_bands))*np.nan
+hypso_curve      = np.empty(len(elevation_bands))*np.nan
+hypso_curve1     = np.empty(len(elevation_bands))*np.nan
+hypso_curve2     = np.empty(len(elevation_bands))*np.nan
+hypso_curve3     = np.empty(len(elevation_bands))*np.nan
 #hypsometric density (band number of pixels / total pixels)
-hypso_density   = np.empty(len(elevation_bands))*np.nan
+hypso_density0   = np.empty(len(elevation_bands))*np.nan
+hypso_density1   = np.empty(len(elevation_bands))*np.nan
+hypso_density2   = np.empty(len(elevation_bands))*np.nan
+hypso_density3   = np.empty(len(elevation_bands))*np.nan
 for i,height in enumerate(elevation_bands):
-    mask = (~np.isnan(dem.where(dem>height).where(dem<height+dz)))
+    mask  = (~np.isnan(dem.where(dem>height).where(dem<height+dz)))
+    mask1 = (~np.isnan(dem_full.where(dem_full>height).where(dem_full<height+dz)))
+    mask2 = (~np.isnan(dem_era5.where(dem_era5>height).where(dem_era5<height+dz)))
+    mask3 = (~np.isnan(dem_cr2met.where(dem_cr2met>height).where(dem_cr2met<height+dz)))
     bands_size[i]    = mask.sum()
-    hypso_density[i] = bands_size[i]/tpix
+    hypso_density0[i] = bands_size[i]/tpix
+    hypso_density1[i]= mask1.sum()/tpix_full
+    hypso_density2[i]= mask2.sum()/tpix_era5
+    hypso_density3[i]= mask3.sum()/tpix_cr2met
     bands_slope[i]   = np.nanmean(slope.where(mask).values)
-hypso_curve = np.cumsum(hypso_density)
+hypso_curve0 = np.cumsum(hypso_density0)
+hypso_curve1 = np.cumsum(hypso_density1)
+hypso_curve2 = np.cumsum(hypso_density2)
+hypso_curve3 = np.cumsum(hypso_density3)
+
+hypso_curve = hypso_curve0
+hypso_density = hypso_density0
+#%% compare terrain models
+
+fig,ax = plt.subplots(2,4,sharex=True,sharey="row",figsize=(10,4))
+
+titles = ["MODIS 500m","SRTM 30m", "ERA5-Land 12km", "CR2MET 5km"]
+colors = plt.cm.tab10(np.linspace(0,1,10))
+for i in range(4):
+    data1 = eval("hypso_curve"+str(i))
+    if i<2:
+        data2 = eval("hypso_density"+str(i))
+    else:
+        data2 = pd.Series(eval("hypso_density"+str(i))).rolling(window=1,center=True).mean()
+    ax[0,i].set_title(titles[i])
+    ax[0,i].plot(elevation_bands,data1,color=colors[i])
+    ax[1,i].plot(elevation_bands,data2,color=colors[i])
+    ax[1,i].set_xticks(np.arange(0,7e3,1e3))
+    ax[1,i].tick_params(axis="x",rotation=45)
+    ax[1,i].set_xlim(dem.min(),dem.max())
+    ax[0,i].grid(True,ls=":")
+    ax[1,i].grid(True,ls=":")
+ax[0,0].set_ylabel("Basin Hypsometry")
+ax[1,0].set_ylabel("Basin Height Density")
+fig.text(0.5,-0.05,"Elevation (m)",ha="center",va="center")
+
+plt.savefig("plots/maipomanzano/datasetcomparison/terrainmodels.pdf",dpi=150,bbox_inches="tight")
 #%%
 # =============================================================================
 # compute percentages of land cover clases and pixel orientations

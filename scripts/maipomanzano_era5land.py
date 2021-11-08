@@ -73,29 +73,76 @@ for i,time in enumerate(SCOV_ERA5.time.values):
     sca = (SCOV_ERA5[i,:,:]>95).values.sum()/49
     SCA_ERA5[time] = sca
     
-SCA_ERA5 = SCA_ERA5.resample("d").mean()
-
+SCA_ERA5 = SCA_ERA5.resample("d").mean()*100
+SCA_ERA5 = SCA_ERA5.reindex(SCA_ianigla.index)
 #%%
-SCOV_ERA5    = xr.open_dataset("datos/era5land/maipo/snow_depth_water_equivalent.nc",chunks="auto")
-# SCOV_ERA5    = SCOV_ERA5.sd[23:,:,:][::12,:,:][::2,:,:]
-SCOV_ERA5    = SCOV_ERA5.sd
-SCA_ERA5     = pd.Series(np.empty(len(SCOV_ERA5.time))*np.nan,index=SCOV_ERA5.time.values)
+# SCOV_ERA5    = xr.open_dataset("datos/era5land/maipo/snow_depth_water_equivalent.nc",chunks="auto")
+# # SCOV_ERA5    = SCOV_ERA5.sd[23:,:,:][::12,:,:][::2,:,:]
+# SCOV_ERA5    = SCOV_ERA5.sd
+# SCA_ERA5     = pd.Series(np.empty(len(SCOV_ERA5.time))*np.nan,index=SCOV_ERA5.time.values)
 
-for i,time in enumerate(SCOV_ERA5.time.values):
-    sca = (SCOV_ERA5[i,:,:]>10*1e-3).values.sum()/49
-    SCA_ERA5[time] = sca
+# for i,time in enumerate(SCOV_ERA5.time.values):
+#     sca = (SCOV_ERA5[i,:,:]>10*1e-3).values.sum()/49
+#     SCA_ERA5[time] = sca
     
-SCA_ERA5 = SCA_ERA5.resample("d").mean()
+# SCA_ERA5 = SCA_ERA5.resample("d").mean()
 
 
 #%%
-tot = pd.concat([SCA_ERA5.reindex(SCA_ianigla.index),SCA_ianigla/100],axis=1)
+
+fig = plt.figure(num=0,figsize=(8,6),dpi=150)
+# fig.tight_layout(pad=2)
+ax  = fig.add_subplot(211)
+ax1 = fig.add_subplot(223)
+ax2 = fig.add_subplot(224)
+# ax4 = fig.add_subplot(243)
+fig.tight_layout(pad=3)
+
+SCA_ianigla.plot(ax=ax,alpha=0.7,label="IANIGLA")
+SCA_ERA5.plot(ax=ax,alpha=0.7,label="ERA5-Land")
+
+ax.legend(loc=(0,1),ncol=2,frameon=False)
+ax.set_xlabel("")
+ax.set_ylabel("Fractional Snow\nCovered Area (%)")
+
+mask1 = SCA_ianigla.index.month.map(lambda x: x in [12,1,2]).values
+mask2 = SCA_ianigla.index.month.map(lambda x: x in [3,4,5]).values
+mask3 = SCA_ianigla.index.month.map(lambda x: x in [6,7,8]).values
+mask4 = SCA_ianigla.index.month.map(lambda x: x in [9,10,11]).values
+
+ax1.scatter(SCA_ianigla[mask1],SCA_ERA5[mask1],alpha=0.3,s=5,color="tab:red",label="summer")
+ax1.scatter(SCA_ianigla[mask2],SCA_ERA5[mask2],alpha=0.3,s=5,color="tab:brown",label="autumn")
+ax1.scatter(SCA_ianigla[mask3],SCA_ERA5[mask3],alpha=0.3,s=5,color="tab:cyan",label="winter")
+ax1.scatter(SCA_ianigla[mask4],SCA_ERA5[mask4],alpha=0.3,s=5,color="tab:green",label="spring")
+
+ax1.plot([0,100],[0,100],"k--")
+ax1.set_ylabel("fSCA_ERA5LAND")
+ax1.set_xlabel("fSCA_IANIGLA")
+ax1.legend(frameon=False)
 
 
-cmaplist = pd.read_csv("terraincolormap.txt").values
-cmaplist = [list(np.array(i)/255) for i in cmaplist]
-cmap = mpl.colors.LinearSegmentedColormap.from_list('Custom cmap', cmaplist, len(cmaplist))
-fig,ax=plt.subplots()
-basin.boundary.plot(ax=ax,zorder=2,color="k")
-topo.plot(ax=ax,cmap=cmap)
-ax.axis("off")
+
+data1 = SCA_ianigla.groupby([SCA_ianigla.index.year,SCA_ianigla.index.dayofyear]).mean().unstack().T
+data2 = SCA_ERA5.groupby([SCA_ianigla.index.year,SCA_ianigla.index.dayofyear]).mean().unstack().T
+
+data1.plot(legend=False,ax=ax2,color="tab:blue",alpha=0.1)
+data2.plot(legend=False,ax=ax2,color="tab:orange",alpha=0.1)
+
+data1.mean(axis=1).plot(ax=ax2)
+data2.mean(axis=1).plot(ax=ax2)
+ax2.set_xlabel("Day of year")
+ax2.set_xticks(np.arange(0,366)[::50])
+ax2.set_ylabel("fSCA Annual Cycle (%)")
+
+plt.savefig("plots/maipomanzano/ERA5land_SCA_study.pdf",dpi=150,bbox_inches="tight")
+
+# tot = pd.concat([SCA_ERA5.reindex(SCA_ianigla.index),SCA_ianigla/100],axis=1)
+
+
+# cmaplist = pd.read_csv("terraincolormap.txt").values
+# cmaplist = [list(np.array(i)/255) for i in cmaplist]
+# cmap = mpl.colors.LinearSegmentedColormap.from_list('Custom cmap', cmaplist, len(cmaplist))
+# fig,ax=plt.subplots()
+# basin.boundary.plot(ax=ax,zorder=2,color="k")
+# topo.plot(ax=ax,cmap=cmap)
+# ax.axis("off")

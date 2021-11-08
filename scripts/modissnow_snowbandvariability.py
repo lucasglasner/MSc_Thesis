@@ -89,6 +89,10 @@ pr_lo.index = pr_lo.iloc[:,0]+"-"+pr_lo.iloc[:,1]+"-"+pr_lo.iloc[:,2]
 pr_lo.index = pd.to_datetime(pr_lo.index)
 pr_lo       = pd.to_numeric(pr_lo.iloc[:,3])
 
+pr_cr2met = pd.read_csv("datos/cr2met/pr_RioMaipoEnElManzano.csv")
+pr_cr2met.index = pd.to_datetime(pr_cr2met["date"])
+pr_cr2met = pr_cr2met["5710001"]
+
 #%%
 # =============================================================================
 # Read file with "good images", or make it.
@@ -133,7 +137,7 @@ except:
     # =========================================================================
     # compute time to last rainfall in the valley
     # =========================================================================
-    rainy_days = pr_lo[pr_lo>5].index
+    rainy_days = pr_cr2met[pr_cr2met>5].index
     rainy_days = np.array(list(map(lambda x: x.toordinal(),rainy_days)))
     
     snowy_days = tile_props.index
@@ -195,9 +199,9 @@ except:
         tile_date = tile_props.index[i]
         for j in range(len(masks)):
             band = masks[j] 
-            tile_band = fSCA.sel(time=tile_date).values[band]
+            tile_band = fSCA.sel(time=tile_date).where(band)
             snow_band = np.where((tile_band<100) & (tile_band>30),1,0)
-            fSCA_bands.iloc[j,i] = snow_band.sum()/len(snow_band)
+            fSCA_bands.iloc[j,i] = snow_band.sum()/np.count_nonzero(band)
     fSCA_bands.to_csv("datos/modis/modis_"+sensor+"_fSCA_bands.csv")
     
 fSCA_bands = fSCA_bands.T.loc[tile_props.index].T
@@ -327,30 +331,59 @@ cb.set_label("Fraction of Snow Cover Area (%)",fontsize=10)
 # fSCA_bands = fSCA_bands.iloc[fSCA_bands.index<=5.0e3,:]
 
 
-var = fSCA_bands.loc[fSCA_bands.index<4.5e3,:]
+var = fSCA_bands#.loc[fSCA_bands.index<4.5e3,:]
 H50 = np.ones((var.shape[1]))*np.nan
 H20 = np.ones((var.shape[1]))*np.nan
 H80 = np.ones((var.shape[1]))*np.nan
 
-for i in range(var.shape[1]):
-    interp = interp1d(var.iloc[:,i].values,
-                      var.index,assume_sorted=False)
-    # if var.iloc[:,i].values.min()<0.2:
-    #     if var.iloc[:,i].values.max()>0.8:
+# for i in range(var.shape[1]):
+#     interp = interp1d(var.iloc[:,i].values,
+#                       var.index,assume_sorted=False)
+#     # if var.iloc[:,i].values.min()<0.2:
+#     #     if var.iloc[:,i].values.max()>0.8:
+#     try:
+#         H50[i] = interp(0.5*var.max(axis=0)[i])
+#     except:
+#         H50[i] = np.nan
+#     try:
+#         H20[i] = interp(0.2*var.max(axis=0)[i])
+#     except:
+#         H20[i] = np.nan
+#     try:
+#         H80[i] = interp(0.8*var.max(axis=0)[i])
+#     except:
+#         H80[i] = np.nan
+    # H80[i] = interp(var.iloc[:,i].sort_values().max()*0.8)
+
+for i in trange(var.shape[1]):
+    idx1    = np.argwhere(np.diff(np.sign(var.iloc[:,i]-0.2*var.max(axis=0)[i]))).flatten()
+    idx2    = np.argwhere(np.diff(np.sign(var.iloc[:,i]-0.5*var.max(axis=0)[i]))).flatten()
+    idx3    = np.argwhere(np.diff(np.sign(var.iloc[:,i]-0.8*var.max(axis=0)[i]))).flatten()
+    
+    interp1 = interp1d([var.iloc[idx1[0],i],var.iloc[idx1[0]+1,i]],
+                       [var.index[idx1[0]],var.index[idx1[0]+1]])
+    interp2 = interp1d([var.iloc[idx2[0],i],var.iloc[idx2[0]+1,i]],
+                       [var.index[idx2[0]],var.index[idx2[0]+1]])
+    interp3 = interp1d([var.iloc[idx3[0],i],var.iloc[idx3[0]+1,i]],
+                       [var.index[idx3[0]],var.index[idx3[0]+1]])
     try:
-        H50[i] = interp(0.5*var.max(axis=0)[i])
+        H50[i] = interp1(0.2)
     except:
         H50[i] = np.nan
     try:
-        H20[i] = interp(0.2*var.max(axis=0)[i])
+        H20[i] = interp2(0.5)
     except:
         H20[i] = np.nan
     try:
-        H80[i] = interp(0.8*var.max(axis=0)[i])
+        H80[i] = interp3(0.8)
     except:
-        H80[i] = np.nan
-    # H80[i] = interp(var.iloc[:,i].sort_values().max()*0.8)
+        H80[i] = np.nan    
 
+    
+    
+    # H20[i] = var.index[idx1[0]]
+    # H50[i] = var.index[idx2[0]]
+    # H80[i] = var.index[idx3[0]]
 H50 = pd.Series(H50,index=fSCA_bands.columns)
 H20 = pd.Series(H20,index=fSCA_bands.columns)
 H80 = pd.Series(H80,index=fSCA_bands.columns)
@@ -358,6 +391,12 @@ H80 = pd.Series(H80,index=fSCA_bands.columns)
 # dH = pd.DataFrame(np.gradient(fSCA_bands)[0]).rolling(10,center=True,min_periods=2).mean().max(axis=0).values
 dH = H80-H20
 
+
+
+#%%
+# fSCA_bands.iloc[:,0].plot()
+# idx = np.argwhere(np.diff(np.sign(fSCA_bands.iloc[:,0] - .8))).flatten()
+# plt.axvline(fSCA_bands.index[idx[0]])
 #%%
 # =============================================================================
 # 
@@ -370,9 +409,19 @@ tile_props["H80"] = H80
 tile_props["H20"] = H20
 
 
-fig,ax = plt.subplots(2,3,sharex=True,sharey=True,figsize=(8,4))
-fig.tight_layout(pad=1)
+fig,ax = plt.subplots(2,3,sharex=True,sharey=True,figsize=(10,5))
+fig.tight_layout(pad=3)
 fig.text(0,0.5,"Snow Limit height (m)",ha="center",va="center",rotation=90)
+
+box1 = []
+box2 = []
+
+for axis in ax.ravel()[:-1]:
+    bbox = axis.get_position()
+    box1.append(fig.add_axes([bbox.xmin,bbox.ymax,bbox.xmax-bbox.xmin,0.1],sharex=axis))
+    box2.append(fig.add_axes([bbox.xmax,bbox.ymin,0.05,bbox.ymax-bbox.ymin],sharey=axis))
+    
+
 var = [H20,H50,H80,sl_dgf.reindex(tile_props.index).loc[tile_props.index],
        sl_ianigla.reindex(tile_props.index).loc[tile_props.index]]
 names = ["H20","H50","H80","DGF","HYPSOMETRY\nIANIGLA"]
@@ -382,37 +431,63 @@ ax = ax.ravel()
 ax[5].plot([],[],ls=":",color="r",label="$y\sim x$")
 
 for i in range(len(ax)-1):
-    ax[i].scatter(sl_ianigla2.loc[tile_props.index],
-                  var[i],edgecolor="k",alpha=0.6,color=colors[i],zorder=3,
+    
+    x,y = sl_ianigla2.loc[tile_props.index].dropna(),var[i].dropna()
+    x   = x.reindex(y.index)
+    y   = y.reindex(x.index)
+    ax[i].scatter(x,
+                  y,edgecolor="k",alpha=0.6,color=colors[i],zorder=3,
                   lw=0.4)
-    # m = linregress(sl_ianigla2.loc[tile_props.index],var[i])
-    # ax[i].plot(np.arange(800,4.5e3),
-    #            np.arange(800,4.5e3)*m.slope+m.intercept,ls=":",color="k")
-    # t=ax[i].text(x=0.02,y=0.75,
-    #              s="y~"+"{:.2f}".format(m.slope)+"x"+"{:.2f}".format(m.intercept)+"\n$R^2$: "+"{:.1%}".format(m.rvalue**2),
-    #              transform=ax[i].transAxes)
-    ax[i].plot([1e2,7e3],[1e2,7e3],color="red",ls=":")
-    ax[i].set_xlim(0,7e3)
-    ax[i].set_ylim(0,7e3)
+    m = linregress(x,y)
+    ax[i].plot(np.arange(800,7.5e3),
+                np.arange(800,7.5e3)*m.slope+m.intercept,ls=":",color="k")
+    t=ax[i].text(x=0.5,y=0.02,
+                  s="y~"+"{:.2f}".format(m.slope)+"x"+"{:.2f}".format(m.intercept)+"\n$R^2$: "+"{:.1%}".format(m.rvalue**2),
+                  transform=ax[i].transAxes)
+    ax[i].plot([1e2,7.5e3],[1e2,7.5e3],color="red",ls=":")
+    ax[i].set_xlim(0,7.5e3)
+    ax[i].set_ylim(0,7.5e3)
     # ax[i].set_title(names[i],loc="left")
     ax[i].grid(True,ls=":")
     ax[5].scatter([],[],label=names[i],color=colors[i],edgecolor="k",lw=0.4)
+    
+    box1[i].axis("off")
+    box2[i].axis("off")
+    if i==len(ax)-2:
+        box1[i].boxplot(x,vert=False)
+    box2[i].boxplot(y,vert=True)
 
+    # box1[i].boxplot(x,vert=True)
 
 # for i in [1,2,4]:
 #     ax[i].set_yticklabels("")
 ax[5].axis("off")
 # ax[4].legend(frameon=False,loc=(1.85,0.77))
-ax[5].legend(frameon=False,loc=(-0.05,0.12),ncol=1)
+ax[5].legend(frameon=False,loc=(0.1,0.12),ncol=1)
 # ax[5].scatter(sl_ianigla.loc[tile_props.index],dH,edgecolor="k",alpha=0.6)
 # ax[5].set_title("dH",loc="left")
 
 ax[4].set_xlabel("Snow Limit IANIGLA (m)")
 
-plt.savefig("plots/maipomanzano/scatterplots_snowlimitS.pdf",dpi=150,bbox_inches="tight")
+plt.savefig("plots/maipomanzano/datasetcomparison/scatterplots_snowlimitS.pdf",dpi=150,bbox_inches="tight")
 #%%
 
+fig = plt.figure(figsize=(8,4))
 
+ax0 = fig.add_subplot(211)
+ax1 = fig.add_subplot(234)
+ax2 = fig.add_subplot(235)
+ax3 = fig.add_subplot(236)
+
+ax2.set_yticklabels("")
+ax3.set_yticklabels("")
+for i,var in enumerate([H20,H50,H80]):
+    ax = eval("ax"+str(i+1))
+    ax.grid(True,ls=":")
+    ax.scatter(var,dH,edgecolor="k",alpha=0.1)
+    ax.set_ylim(0,3e3)
+    
+    
 
 
 

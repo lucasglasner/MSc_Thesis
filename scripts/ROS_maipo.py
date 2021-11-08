@@ -21,8 +21,8 @@ import scipy.stats as st
 # =============================================================================
 # Cargar datos
 # =============================================================================
-cuenca           = "RioMaipoManzano"
-curva_hipso      =  pd.read_csv("datos/topography/"+cuenca+"_Hipso.csv")
+cuenca           = "RioMauleEnArmerillo"
+curva_hipso      =  pd.read_csv("datos/topography/basins/hipso/"+cuenca+"_Hipso.csv")
 curva_hipso.drop_duplicates(subset="Area_km2",inplace=True)
 
 snow_limit       =  pd.read_csv("datos/ianigla/"+cuenca+"_SCA_s_comp.filtro_MA.3días.csv",index_col=0)/100
