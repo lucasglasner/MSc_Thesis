@@ -23,7 +23,7 @@ import xarray as xr
 import geopandas as gpd
 from tqdm import trange
 from scipy.stats import linregress
-#%%
+
 # =============================================================================
 # Load data
 # =============================================================================
@@ -75,13 +75,6 @@ pr_cr2met = pr_cr2met["5710001"]
 
 precip_days = pr_cr2met>5
 precip_days = precip_days[precip_days].index
-# =============================================================================
-# 
-# #load cr2met terrain and temperature data
-# =============================================================================
-dem        = xr.open_dataset("datos/topography/basins/RioMaipoEnElManzano_CR2MET.nc").Band1
-t2m_cr2met = xr.open_dataset("datos/cr2met/CR2MET_t2m_v2.0_day_1979_2020_005deg_RioMaipoEnElManzano.nc",
-                             chunks="auto").t2m
 
 
 # =============================================================================
@@ -100,18 +93,64 @@ H0_ERA5 = H0_ERA5.deg0l
 # Build freezing level height for maipo en el manzano basin based upon a simple
 # linear regression model between elevation and temperature of each day
 # =============================================================================
-x = dem.values.ravel()
-linmodels = []
-for i,date in enumerate(t2m_cr2met.time):
-    y=t2m_cr2met.sel(time=date).values.ravel()
-    mask = ~np.isnan(x) & ~np.isnan(y)
-    m=linregress(x[mask],y[mask])
-    linmodels.append(m)
-    
-# pearsons       = [m.rvalue for m in linmodels]
-H0_cr2met_OLR  = [-m.intercept/m.slope for m in linmodels] 
-H0_cr2met_OLR  = pd.Series(H0_cr2met_OLR,index=t2m_cr2met.time.values)
 
+try:
+    H0_cr2met = pd.read_csv("datos/cr2met/freezinglevel_t2m_linregress.csv",index_col=0)
+    H0_cr2met.index = pd.to_datetime(H0_cr2met.index)
+    H0_era5land   = pd.read_csv("datos/era5land/maipo/freezinglevel_t2m_linregress.csv",index_col=0)
+    H0_era5land.index = pd.to_datetime(H0_era5land.index)
+   
+    lm_cr2met     = pd.read_csv("datos/cr2met/t2m_linregress.csv",index_col=0)
+    lm_cr2met.index = pd.to_datetime(lm_cr2met.index)
+    lm_era5land   = pd.read_csv("datos/era5land/maipo/t2m_linregress.csv",index_col=0)
+    lm_era5land.index = pd.to_datetime(lm_era5land.index)
+    
+    H0_cr2met   = H0_cr2met[lm_cr2met.rsquared>0.8]
+    H0_era5land = H0_era5land[lm_era5land.rsquared>0.8]
+except:
+    # =============================================================================
+    # 
+    # #load cr2met terrain and temperature data
+    # =============================================================================
+    dem        = xr.open_dataset("datos/topography/basins/RioMaipoEnElManzano_CR2MET.nc").Band1
+    t2m_cr2met = xr.open_dataset("datos/cr2met/CR2MET_t2m_v2.0_day_1979_2020_005deg_RioMaipoEnElManzano.nc",
+                                 chunks="auto").t2m
+    
+    
+    # =============================================================================
+    # load era5 land temperature and terrain data
+    # =============================================================================
+    
+    dem2          = xr.open_dataset("datos/topography/basins/RioMaipoEnElManzano_ERA5LAND.nc").z
+    t2m_era5land  = xr.open_dataset("datos/era5land/maipo/2m_temperature.nc",chunks="auto").t2m
+    
+    x  = dem.values.ravel()
+    x1 = dem2.values.ravel()
+    linmodels  = []
+    linmodels2 = []
+    for i,date in enumerate(t2m_cr2met.time):
+        y=t2m_cr2met.sel(time=date).values.ravel()
+        mask = ~np.isnan(x) & ~np.isnan(y)
+        m=linregress(x[mask],y[mask])
+        linmodels.append(m)
+        
+    for i,date in enumerate(t2m_era5land.time):
+        y1=t2m_era5land.sel(time=date).values.ravel()-273.15
+        mask = ~np.isnan(x1) & ~np.isnan(y1)
+        m1=linregress(x1[mask],y1[mask])
+        linmodels2.append(m1)
+        
+        lm_cr2met      = pd.DataFrame([(m.slope,m.intercept,m.rvalue**2) for m in linmodels],
+                                      index = t2m_cr2met.time.values,columns=["slope","intercept","rsquared"])
+        lm_era5land    = pd.DataFrame([(m.slope,m.intercept,m.rvalue**2) for m in linmodels2],
+                                      index = t2m_era5land.time.values,columns=["slope","intercept","rsquared"])
+        
+        H0_cr2met  = [-m.intercept/m.slope for m in linmodels] 
+        H0_cr2met  = pd.Series(H0_cr2met,index=t2m_cr2met.time.values)
+        
+        H0_era5land    = [-m1.intercept/m1.slope for m1 in linmodels2]
+        H0_era5land    = pd.Series(H0_era5land,index=t2m_era5land.time.values)
+        del mask,m,linmodels,linmodels2,x,x1,y,y1
 #%%
 # =============================================================================
 # Define a function for calculating the number of pixels with T<0 below the
@@ -137,26 +176,94 @@ def level_error(timeseries,raster,dem,field_limit=0):
 # compute the metric for each method/dataset
 # =============================================================================
 
-metric_stodomingo = level_error(H0_stodomingo,t2m_cr2met,dem)
-metric_amdar      = level_error(H0_amdar,t2m_cr2met,dem)
-metric_cr2met_OLR = level_error(H0_cr2met_OLR,t2m_cr2met,dem)
-metric_era5       = level_error(H0_ERA5,t2m_cr2met,dem)
+# metric_stodomingo = level_error(H0_stodomingo,t2m_cr2met,dem)
+# metric_amdar      = level_error(H0_amdar,t2m_cr2met,dem)
+# metric_cr2met_OLR = level_error(H0_cr2met,t2m_cr2met,dem)
+# metric_era5       = level_error(H0_ERA5,t2m_cr2met,dem)
 
 
 #%%
+# =============================================================================
+# Read file with freezing temperature by band or make it.
+# =============================================================================
+# precip_days=precip_days[:100]
+try: 
+    flevel_bands = pd.read_csv("datos/cr2met/freezinglevel_t2m_bands.csv",
+                              index_col=0)
+    flevel_bands.columns = pd.to_datetime(flevel_bands.columns)
+except:
+    # =========================================================================
+    # Build elevation band masks
+    # =========================================================================
+    dz              = 200
+    elevation_bands = np.arange(dem.min(),dem.max()+dz,dz)
+    
+    masks = []
+    for j in range(len(elevation_bands)-1):
+            z0   = elevation_bands[j]
+            z1   = elevation_bands[j+1]
+            mask = (dem.where((dem>z0) & (dem<z1))>0).values
+            masks.append(mask)
+    
+    elevation_bands = elevation_bands[:-1]
+    # =========================================================================
+    # Apply band mask, and compute % of pixels with temperature < 0°C by band
+    # =========================================================================
+    
+    flevel_bands      = np.empty((len(elevation_bands),len(precip_days)))
+    flevel_bands      = pd.DataFrame(flevel_bands,
+                                      index = elevation_bands,
+                                      columns=precip_days)
+    for i in trange(len(precip_days)):
+        tile_date = precip_days[i]
+        for j in range(len(masks)):
+            band = masks[j] 
+            tile_band     = t2m_cr2met.sel(time=tile_date).where(band)
+            freezing_band = np.where((tile_band<0),1,0)
+            flevel_bands.iloc[j,i] = freezing_band.sum()/np.count_nonzero(band)
+    flevel_bands.to_csv("datos/cr2met/freezinglevel_t2m_bands.csv")
 
-fig,ax = plt.subplots(1,3,sharex=True,sharey=True,figsize=(12,3))
-# plt.scatter(H0_amdar,H0_cr2met_OLR.reindex(H0_amdar.index))
 
+#%%
+timerange  = pd.date_range("1979-01-01T00:00:00","2021-12-31T00:00:00",freq="h")
+isotermas0 = [data.reindex(timerange) for data in [H0_stodomingo,H0_amdar,H0_cr2met,H0_era5land,H0_ERA5]] 
+isotermas0 = pd.concat(isotermas0,axis=1)
+
+isotermas0.columns = ["stodomingo","amdar","cr2met","era5land","era5"]
+isotermas0 = isotermas0[isotermas0<10e3]
+isotermas0 = isotermas0[isotermas0>0]
+
+rainy_mask = pd.Series(isotermas0.index.date).map(lambda x: x in precip_days.date).values
 mask = pd.Series(H0_stodomingo.index.date).map(lambda x: x in precip_days.date).values
-for i,var in enumerate([H0_amdar,H0_cr2met_OLR,H0_ERA5]):
-    ax[i].scatter(H0_stodomingo,var.reindex(H0_stodomingo.index),alpha=0.7)
-    ax[i].scatter(H0_stodomingo[mask],var.reindex(H0_stodomingo.index)[mask],alpha=0.7)
+#%%
+
+
+
+#%%
+fig,ax = plt.subplots(2,5,sharex="row",sharey="row",figsize=(12,6))
+# plt.scatter(H0_amdar,H0_cr2met.reindex(H0_amdar.index))
+
+ax=ax.ravel()
+var = isotermas0
+for i in range(len(ax)-5):
+    ax[i].scatter(var.iloc[:,0],var.iloc[:,i],alpha=0.5)
+    ax[i].scatter(var.iloc[:,0][rainy_mask],var.iloc[:,i][rainy_mask],alpha=0.5)
     ax[i].plot([0,8e3],[0,8e3],"k--")
-    ax[i].set_xlim(0,8e3)
-    ax[i].set_ylim(0,8e3)
-    ax[i].set_yticks(ax[i].get_xticks())
+    # ax[i].set_xlim(0,8.5e3)
+    # ax[i].set_ylim(0,8.5e3)
+    ax[i].set_aspect('equal')
+    ax[i].set_yticks(np.arange(0,8.5e3+2.5e3,2.5e3))
+    ax[i].set_xticks(np.arange(0,8.5e3+2.5e3,2.5e3))
     ax[i].grid(True,ls=":")
+    ax[i].set_title(var.iloc[:,i].name)
+    
+    ax[i+5].boxplot(var.iloc[:,i].dropna(),positions=[0],sym="",patch_artist=True,medianprops={"color":"k"})
+    ax[i+5].boxplot(var.iloc[:,i][rainy_mask].dropna(),positions=[0.5],sym="",patch_artist=True,
+                    boxprops={"facecolor":"tab:orange"},medianprops={"color":"k"})
+    ax[i+5].grid(True,ls=":")
+    ax[i+5].set_xticks([])
+    ax[i+5].set_xticklabels([])
+    ax[i+5].set_yticks(np.arange(0,8.5e3+1e3,1e3))
     
     
 ax[0].scatter([],[],color="tab:orange",label="Pr>5mm")
@@ -164,54 +271,13 @@ ax[0].legend(frameon=False)
 ax[2].plot([],[],color="k",ls="--",label="y~x")
 ax[2].legend(frameon=False)
 
-ax[1].set_xlabel("H0_amdar (m)",fontsize=12)
-ax[0].set_title("H0_StoDomingo (m)")
-ax[1].set_title("H0_CR2MET_LR (m)")
-ax[2].set_title("H0_ERA5 (m)")
+ax[2].set_xlabel("H0_StoDomingo (m)",fontsize=12)
+# ax[1].set_title("H0_Amdar (m)")
+# ax[2].set_title("H0_CR2MET_LR (m)")
+# ax[3].set_title("H0_ERA5-Land (m)")
+# ax[4].set_title("H0_ERA5 (m)")
 
 plt.savefig("plots/maipomanzano/datasetcomparison/isotherm0scatters.pdf",dpi=150,bbox_inches="tight")
-
-# # =============================================================================
-# # Read file with freezing temperature by band or make it.
-# # =============================================================================
-# # precip_days=precip_days[:100]
-# try: 
-#     flevel_bands = pd.read_csv("datos/cr2met/freezinglevel_t2m_bdsands.csv",
-#                              index_col=0)
-#     flevel_bands.columns = pd.to_datetime(flevel_bands.columns)
-# except:
-#     # =========================================================================
-#     # Build elevation band masks
-#     # =========================================================================
-#     dz              = 200
-#     elevation_bands = np.arange(dem.min(),dem.max()+dz,dz)
-    
-#     masks = []
-#     for j in range(len(elevation_bands)-1):
-#             z0   = elevation_bands[j]
-#             z1   = elevation_bands[j+1]
-#             mask = (dem.where((dem>z0) & (dem<z1))>0).values
-#             masks.append(mask)
-    
-#     elevation_bands = elevation_bands[:-1]
-#     # =========================================================================
-#     # Apply band mask, and compute % of pixels with temperature < 0°C by band
-#     # =========================================================================
-    
-#     flevel_bands      = np.empty((len(elevation_bands),len(precip_days)))
-#     flevel_bands      = pd.DataFrame(flevel_bands,
-#                                      index = elevation_bands,
-#                                      columns=precip_days)
-#     for i in trange(len(precip_days)):
-#         tile_date = precip_days[i]
-#         for j in range(len(masks)):
-#             band = masks[j] 
-#             tile_band     = t2m_cr2met.sel(time=tile_date).where(band)
-#             freezing_band = np.where((tile_band<0),1,0)
-#             flevel_bands.iloc[j,i] = freezing_band.sum()/np.count_nonzero(band)
-#     flevel_bands.to_csv("datos/cr2met/freezinglevel_t2m_bands.csv")
-
-
 
 
 #%%
