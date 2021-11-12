@@ -158,6 +158,7 @@ except:
 # =========================================================================
 
 tile_props = tile_props[tile_props["%clouds"]<0.05].dropna()
+tile_props = tile_props[:"2020-04-30"]
 # tile_props = tile_props[tile_props["%SCA"]>0.5].dropna()
 # tile_props = tile_props[tile_props["timetolastrain"]<30].dropna()
 fSCA   = fSCA.sel(time=tile_props.index)
@@ -429,7 +430,7 @@ colors = plt.cm.get_cmap("tab10",len(names))(np.linspace(0,1,len(names)))
 ax = ax.ravel()
 # ax[4].plot([],[],ls=":",color="k",label="Linear\nRegression")
 ax[5].plot([],[],ls=":",color="r",label="$y\sim x$")
-
+linmodels=[]
 for i in range(len(ax)-1):
     
     x,y = sl_ianigla2.loc[tile_props.index].dropna(),var[i].dropna()
@@ -456,6 +457,7 @@ for i in range(len(ax)-1):
     if i==len(ax)-2:
         box1[i].boxplot(x,vert=False)
     box2[i].boxplot(y,vert=True)
+    linmodels.append(m)
 
     # box1[i].boxplot(x,vert=True)
 
@@ -471,35 +473,87 @@ ax[4].set_xlabel("Snow Limit IANIGLA (m)")
 
 plt.savefig("plots/maipomanzano/datasetcomparison/scatterplots_snowlimitS.pdf",dpi=150,bbox_inches="tight")
 #%%
+import seaborn as sns
 
-fig = plt.figure(figsize=(8,4))
+fig,ax = plt.subplots(2,2,sharex="col",figsize=(8,6))
 
-ax0 = fig.add_subplot(211)
-ax1 = fig.add_subplot(234)
-ax2 = fig.add_subplot(235)
-ax3 = fig.add_subplot(236)
+colors = cmocean.cm.ice_r(np.linspace(0.2,0.9,fSCA_bands.shape[1]))
+dates = tile_props.sort_values(by="timetolastrain").index
 
-ax2.set_yticklabels("")
-ax3.set_yticklabels("")
-for i,var in enumerate([H20,H50,H80]):
-    ax = eval("ax"+str(i+1))
-    ax.grid(True,ls=":")
-    ax.scatter(var,dH,edgecolor="k",alpha=0.1)
-    ax.set_ylim(0,3e3)
+for i,d in enumerate(dates):
+    ax[0,0].plot(elevation_bands,fSCA_bands.loc[:,d],
+                 alpha=0.05,color=colors[i])
+
+from matplotlib.colors import Normalize, ListedColormap
+colormap = ListedColormap(colors)
+pos = ax[0,0].get_position()
+cax = fig.add_axes([pos.xmin,pos.ymax*1.1,pos.xmax-pos.xmin,0.025])
+fig.colorbar(plt.cm.ScalarMappable(norm=Normalize(vmin=1,vmax=160),cmap=colormap),
+             cax=cax,orientation="horizontal",ticks=[1,30,60,90,120,150],
+             label="timetolastrain (days)")
+ax[0,0].set_ylabel("Prob. of snow covered band")
+
+
+ax[1,0].scatter(H50,dH,alpha=0.5)
+sns.kdeplot(H50,dH,alpha=0.5,ax=ax[1,0],cmap="magma")
+ax[1,0].set_ylim(0,2.5e3)
+ax[1,0].set_xlabel("H50")
+ax[1,0].set_ylabel("dH")
+
+boxes = tile_props[["timetolastrain","H50"]].groupby(["timetolastrain",tile_props.index]).mean()
+# np.nanquantile(boxes.unstack(),0.9,axis=0)
+# np.nanquantile(boxes.unstack(),0.1,axis=0)
+# for i in boxes.index.get_level_values(0).unique():
+ax[0,1].errorbar(boxes.index.get_level_values(0).unique(),
+                 boxes.unstack().T.mean().values,
+                 yerr=boxes.unstack().T.std(),elinewidth=0.25)
+ax[0,1].yaxis.tick_right()
+ax[0,1].set_ylabel("H50")
+
+boxes = tile_props[["timetolastrain","dH"]].groupby(["timetolastrain",tile_props.index]).mean()
+# np.nanquantile(boxes.unstack(),0.9,axis=0)
+# np.nanquantile(boxes.unstack(),0.1,axis=0)
+# for i in boxes.index.get_level_values(0).unique():
+ax[1,1].errorbar(boxes.index.get_level_values(0).unique(),
+                 boxes.unstack().T.mean().values,
+                 yerr=boxes.unstack().T.std(),elinewidth=0.25)
+ax[1,1].set_ylim(0,2.5e3)
+ax[1,1].set_yticklabels([])
+ax[1,1].set_xlabel("timetolastrain (days)")
+# ax[1,1].grid(True,ls=":")
+
+
+plt.savefig("plots/maipomanzano/snowlimit_varios.pdf",dpi=150,bbox_inches="tight")
+
+# ax2.set_yticklabels("")
+# ax3.set_yticklabels("")
+# for i,var in enumerate([H50]):
+#     ax = eval("ax"+str(i+2))
+#     ax.grid(True,ls=":")
+#     ax.scatter(var,dH,alpha=0.5)
+#     sns.kdeplot(var,dH,alpha=0.5,ax=ax,cmap="magma")
+#     ax.set_ylim(0,3e3)
     
     
 
 
 
+#%%
 
 
-
-
-
-
-
-
-
+times = pd.date_range("2000-01-01","2021-12-31",freq="d")
+slimits = []
+for snow in [H20,H50,H80,sl_dgf,sl_ianigla,sl_ianigla2]:
+    slimits.append(snow.reindex(times))
+slimits = pd.concat(slimits,axis=1).dropna(how="all")
+names = ["H20","H50","H80","SL_DGF","SL_IANIGLA_HYPSO","SL_IANIGLA"]
+slimits.columns = names
+for i in range(len(slimits.columns)-1):
+    m=linmodels[i]
+    for j in range(len(slimits)):
+        if np.isnan(slimits.iloc[j,i]):
+            slimits.iloc[j,i] =  m.slope*slimits.iloc[j,5]+m.intercept
+ 
 
 
 

@@ -221,7 +221,7 @@ sl_ianigla       =  pd.read_csv("datos/ianigla/"+cuenca+"_SCA_s_comp.filtro_MA.3
 sl_ianigla.index =  pd.to_datetime(sl_ianigla.index)
 interp = interp1d(1-curva_hipso["fArea"],curva_hipso["height"])
 sl_ianigla["SL"] = list(map(lambda x: interp(x).item(),sl_ianigla["SCA(%)"]))
-sl_ianigla2 = pd.read_csv("datos/ianigla/RioMaipoEnElManzano_lim_nieve_ianigla_2009.csv",
+sl_ianigla2 = pd.read_csv("datos/ianigla/RioMaipoEnElManzano_lim_nieve_ianigla_2000-2015.csv",
                           index_col=1).iloc[:,1]
 sl_ianigla2.index = pd.to_datetime(sl_ianigla2.index.values)
 
@@ -265,37 +265,49 @@ qmd_mm.drop(["fecha","agno"," mes"," dia"], inplace=True, axis=1)
 qmd_mm  = pd.to_numeric(qmd_mm[" valor"])
 qmd_mm.name = "q"
 
-qinst_mm = pd.read_csv("datos/estaciones/qinst_"+cuenca+"_2009.csv",header=None)
-dummy = []
-month_start = np.where(qinst_mm.iloc[:,0].map(lambda x: x=="MES:"))[0]
-for pos in range(len(month_start)):
-    if pos != len(month_start)-1:
-        i = month_start[pos]
-        j = month_start[pos+1]
-        table = qinst_mm.iloc[i:j,[0,1,2,4,7,8,9,10,15,16,17,18]]
-        table = table.iloc[2:,:]
-        table = np.vstack((table.iloc[:,[0,1,2,3]],
-                           table.iloc[:,[4,5,6,7]],
-                           table.iloc[:,[8,9,10,11]]))
-        table = np.hstack((np.expand_dims(np.tile(str(pos+1),len(table)),axis=1),table))
-        table = np.hstack((np.expand_dims(np.tile("2009",len(table)),axis=1),table))
-        dummy.append(pd.DataFrame(table))
-    else:
-        table = qinst_mm.iloc[j:,[0,1,2,4,7,8,9,10,15,16,17,18]]
-        table = table.iloc[2:,:]
-        table = np.vstack((table.iloc[:,[0,1,2,3]],
-                           table.iloc[:,[4,5,6,7]],
-                           table.iloc[:,[8,9,10,11]]))
-        table = np.hstack((np.expand_dims(np.tile(str(pos+1),len(table)),axis=1),table))
-        table = np.hstack((np.expand_dims(np.tile("2009",len(table)),axis=1),table))
-        dummy.append(pd.DataFrame(table))
-qinst_mm = pd.concat(dummy,axis=0)
-qinst_mm["fecha"] = qinst_mm.iloc[:,0]+"-"+qinst_mm.iloc[:,1]+"-"+qinst_mm.iloc[:,2]+"T"+qinst_mm.iloc[:,3]
-qinst_mm.index = pd.to_datetime(qinst_mm["fecha"])
-qinst_mm.drop(qinst_mm.columns[[0,1,2,3,4,6]],axis=1,inplace=True)
-qinst_mm = pd.to_numeric(qinst_mm[5]).rename("qinst_mm")
-qinst_mm = qinst_mm.resample("1h").max().dropna()
-
+def corregir_qintdga(excel,yr):
+# qinst_mm = pd.read_csv("datos/estaciones/qinst_"+cuenca+"_2009.csv",header=None)
+    qinst_mm = pd.read_excel(excel,header=None,index_col=0,dtype=str)
+    dummy = []
+    month_start = np.where(qinst_mm.iloc[:,0].map(lambda x: x=="MES:"))[0]
+    for pos in range(len(month_start)):
+        if pos != len(month_start)-1:
+            i = month_start[pos]
+            j = month_start[pos+1]
+            table = qinst_mm.iloc[i:j,[0,1,2,4,7,8,9,10,15,16,17,18]]
+            table = table.iloc[2:,:]
+            table = np.vstack((table.iloc[:,[0,1,2,3]],
+                                table.iloc[:,[4,5,6,7]],
+                                table.iloc[:,[8,9,10,11]]))
+            table = np.hstack((np.expand_dims(np.tile(str(pos+1),len(table)),axis=1),table))
+            table = np.hstack((np.expand_dims(np.tile(yr,len(table)),axis=1),table))
+            dummy.append(pd.DataFrame(table))
+        else:
+            table = qinst_mm.iloc[j:,[0,1,2,4,7,8,9,10,15,16,17,18]]
+            table = table.iloc[2:,:]
+            table = np.vstack((table.iloc[:,[0,1,2,3]],
+                                table.iloc[:,[4,5,6,7]],
+                                table.iloc[:,[8,9,10,11]]))
+            table = np.hstack((np.expand_dims(np.tile(str(pos+1),len(table)),axis=1),table))
+            table = np.hstack((np.expand_dims(np.tile(yr,len(table)),axis=1),table))
+            dummy.append(pd.DataFrame(table))
+    qinst_mm = pd.concat(dummy,axis=0)
+    qinst_mm["fecha"] = qinst_mm.iloc[:,0]+"-"+qinst_mm.iloc[:,1]+"-"+qinst_mm.iloc[:,2]+"T"+qinst_mm.iloc[:,3]
+    index = []
+    for i in range(len(qinst_mm.index)):
+        try:
+            pd.to_datetime(qinst_mm["fecha"].values[i])
+            index.append(True)
+        except:
+            index.append(False)
+    qinst_mm = qinst_mm[index]
+    qinst_mm.index = pd.to_datetime(qinst_mm["fecha"])
+    qinst_mm.drop(qinst_mm.columns[[0,1,2,3,4,6]],axis=1,inplace=True)
+    qinst_mm = pd.to_numeric(qinst_mm[5]).rename("qinst_mm")
+    qinst_mm = qinst_mm.resample("1h").max().dropna()
+    return qinst_mm
+qinst_mm = pd.read_csv("datos/estaciones/qinst_"+cuenca+".csv",index_col=0).qinst_mm
+qinst_mm.index=pd.to_datetime(qinst_mm.index)
 # =============================================================================
 # Estacion dgf
 # =============================================================================
@@ -352,7 +364,8 @@ datos_dgf.index = pd.to_datetime(datos_dgf.index.values)
 
 #Case of study
 cos   = pd.DataFrame([])
-dates = pd.date_range("2009-09-01","2009-09-13",freq="12h")
+# dates = pd.date_range("2009-09-01","2009-09-13",freq="12h")
+dates = pd.date_range("2005-06-20","2005-07-10",freq="12h")
 # dates = pd.date_range("2005-08-20","2005-09-5",freq="12h")
 cos["H0_sd"]      = H0_sd.reindex(dates).resample("12h").interpolate("spline",order=3)
 cos["FL_sd"]      = cos["H0_sd"]-300
@@ -440,10 +453,7 @@ ax[1].set_ylabel("Precipitation\nIntensity (mm/hr)")
 # ax[2].plot(cos["qmd_mm"].dropna(),marker="o",markeredgecolor="purple",lw=0,
 #             color="purple")
 
-q = qinst_mm.reindex(pd.date_range(str(cos.index[0]),
-                                   str(cos.index[-1]),
-                                   freq="1h"))
-q.index = q.index + datetime.timedelta(hours=4)
+q = qinst_mm
 ax[2].plot(q,label="Direct Runoff", color="darkblue")
 ax[2].plot(sliding_interval_filter(q,48)[0], label="Baseflow", color="forestgreen")
 # ax[2].plot(q[argrelextrema(q.rolling(4).mean().values, np.less)[0]].index,
@@ -454,6 +464,7 @@ ax[2].plot(sliding_interval_filter(q,48)[0], label="Baseflow", color="forestgree
 #                                                          str(cos.index[-1]),
 #                                                          freq="1h"))))
 ax[2].set_ylabel("Runoff (m3/s)")
+ax[2].set_ylim(0,500)
 ax[2].legend()
 
 
@@ -468,6 +479,6 @@ for axis in ax:
     axis.xaxis.set_major_formatter(fmt)
 
 
-plt.savefig("plots/maipomanzano/case_of_study/timeseries.pdf",dpi=150,bbox_inches="tight")
+plt.savefig("plots/maipomanzano/timeseries_case.pdf",dpi=150,bbox_inches="tight")
 
 #%%

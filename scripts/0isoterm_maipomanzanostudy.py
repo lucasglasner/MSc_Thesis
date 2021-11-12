@@ -81,11 +81,8 @@ precip_days = precip_days[precip_days].index
 # load era5 zero degree level
 # =============================================================================
 
-H0_ERA5 = pd.read_csv("datos/era5/H0_stodomingo.csv")
-H0_ERA5 = H0_ERA5[H0_ERA5.expver==1].dropna()
-H0_ERA5.index = pd.to_datetime(H0_ERA5.time)
-H0_ERA5.drop(["time","lon","lat","expver"],axis=1,inplace=True)
-H0_ERA5 = H0_ERA5.deg0l
+H0_ERA5_stodom = pd.read_csv("datos/era5/H0_ERA5_stodomingo.csv",index_col=0).deg0l
+H0_ERA5_stodom.index = pd.to_datetime(H0_ERA5_stodom.index)
 
 #%%
 
@@ -179,7 +176,7 @@ def level_error(timeseries,raster,dem,field_limit=0):
 # metric_stodomingo = level_error(H0_stodomingo,t2m_cr2met,dem)
 # metric_amdar      = level_error(H0_amdar,t2m_cr2met,dem)
 # metric_cr2met_OLR = level_error(H0_cr2met,t2m_cr2met,dem)
-# metric_era5       = level_error(H0_ERA5,t2m_cr2met,dem)
+# metric_era5       = level_error(H0_ERA5_stodom,t2m_cr2met,dem)
 
 
 #%%
@@ -226,12 +223,14 @@ except:
 
 #%%
 timerange  = pd.date_range("1979-01-01T00:00:00","2021-12-31T00:00:00",freq="h")
-isotermas0 = [data.reindex(timerange) for data in [H0_stodomingo,H0_amdar,H0_cr2met,H0_era5land,H0_ERA5]] 
+isotermas0 = [data.reindex(timerange) for data in [H0_stodomingo,H0_amdar,H0_cr2met,H0_era5land,H0_ERA5_stodom]] 
 isotermas0 = pd.concat(isotermas0,axis=1)
 
-isotermas0.columns = ["stodomingo","amdar","cr2met","era5land","era5"]
+isotermas0.columns = ["stodomingo","amdar","cr2met","era5land","era5_NNstodomingo"]
 isotermas0 = isotermas0[isotermas0<10e3]
 isotermas0 = isotermas0[isotermas0>0]
+
+#%%
 
 rainy_mask = pd.Series(isotermas0.index.date).map(lambda x: x in precip_days.date).values
 mask = pd.Series(H0_stodomingo.index.date).map(lambda x: x in precip_days.date).values
@@ -252,8 +251,8 @@ for i in range(len(ax)-5):
     # ax[i].set_xlim(0,8.5e3)
     # ax[i].set_ylim(0,8.5e3)
     ax[i].set_aspect('equal')
-    ax[i].set_yticks(np.arange(0,8.5e3+2.5e3,2.5e3))
-    ax[i].set_xticks(np.arange(0,8.5e3+2.5e3,2.5e3))
+    ax[i].set_yticks(np.arange(0,8.5e3+1e3,1e3))
+    ax[i].set_xticks(np.arange(0,8.5e3+1e3,1e3)[::2])
     ax[i].grid(True,ls=":")
     ax[i].set_title(var.iloc[:,i].name)
     
@@ -274,10 +273,10 @@ ax[2].legend(frameon=False)
 ax[2].set_xlabel("H0_StoDomingo (m)",fontsize=12)
 # ax[1].set_title("H0_Amdar (m)")
 # ax[2].set_title("H0_CR2MET_LR (m)")
-# ax[3].set_title("H0_ERA5-Land (m)")
-# ax[4].set_title("H0_ERA5 (m)")
+# ax[3].set_title("H0_ERA5_stodom-Land (m)")
+# ax[4].set_title("H0_ERA5_stodom (m)")
 
-plt.savefig("plots/maipomanzano/datasetcomparison/isotherm0scatters.pdf",dpi=150,bbox_inches="tight")
+# plt.savefig("plots/maipomanzano/datasetcomparison/isotherm0scatters.pdf",dpi=150,bbox_inches="tight")
 
 
 #%%
