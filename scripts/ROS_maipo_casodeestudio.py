@@ -258,6 +258,10 @@ pr_qn.drop(["fecha","agno"," mes"," dia"], inplace=True, axis=1)
 pr_qn  = pd.to_numeric(pr_qn[" valor"])
 pr_qn.name = "pr"
 
+pr_cr2met  = pd.read_csv("datos/cr2met/pr_"+cuenca+".csv",index_col=0)
+pr_cr2met.index = pd.to_datetime(pr_cr2met["date"])
+pr_cr2met.drop("date",axis=1,inplace=True)
+
 qmd_mm   = pd.read_csv("datos/estaciones/qmdiario_"+cuenca+".csv").applymap(lambda x: str(x))
 qmd_mm["fecha"] = qmd_mm["agno"]+"-"+qmd_mm[" mes"]+"-"+qmd_mm[" dia"]
 qmd_mm.index = pd.to_datetime(qmd_mm["fecha"])
@@ -307,7 +311,7 @@ def corregir_qintdga(excel,yr):
     qinst_mm = qinst_mm.resample("1h").max().dropna()
     return qinst_mm
 qinst_mm = pd.read_csv("datos/estaciones/qinst_"+cuenca+".csv",index_col=0).qinst_mm
-qinst_mm.index=pd.to_datetime(qinst_mm.index)
+qinst_mm.index=pd.to_datetime(qinst_mm.index)+datetime.timedelta(hours=4)
 # =============================================================================
 # Estacion dgf
 # =============================================================================
@@ -364,8 +368,10 @@ datos_dgf.index = pd.to_datetime(datos_dgf.index.values)
 
 #Case of study
 cos   = pd.DataFrame([])
+fecha = pd.to_datetime("2006-06-26")
+dates = pd.date_range(fecha-datetime.timedelta(days=5),fecha+datetime.timedelta(days=5),freq="12h")
 # dates = pd.date_range("2009-09-01","2009-09-13",freq="12h")
-dates = pd.date_range("2005-06-20","2005-07-10",freq="12h")
+# dates = pd.date_range("2005-06-20","2005-07-10",freq="12h")
 # dates = pd.date_range("2005-08-20","2005-09-5",freq="12h")
 cos["H0_sd"]      = H0_sd.reindex(dates).resample("12h").interpolate("spline",order=3)
 cos["FL_sd"]      = cos["H0_sd"]-300
@@ -442,6 +448,13 @@ ax1twin.legend(loc=(.22,1),frameon=False,ncol=2)
 ax1twin.set_ylabel("Temperature (°C)")
 ax[1].set_ylabel("Precipitation\nIntensity (mm/hr)")
 
+prcr2 = pr_cr2met.reindex(pd.date_range(str(cos.index[0]),
+                                        str(cos.index[-1]),
+                                        freq="h"))
+prcr2.index = prcr2.index + datetime.timedelta(hours=12)
+ax[1].bar(prcr2.index,prcr2.values.squeeze()/24,alpha=0.5,color="royalblue",edgecolor="k")
+
+
 # ax[1].plot(era5land["tp"])
 
 # =============================================================================
@@ -479,6 +492,6 @@ for axis in ax:
     axis.xaxis.set_major_formatter(fmt)
 
 
-plt.savefig("plots/maipomanzano/timeseries_case.pdf",dpi=150,bbox_inches="tight")
+# plt.savefig("plots/maipomanzano/timeseries_case.pdf",dpi=150,bbox_inches="tight")
 
 #%%

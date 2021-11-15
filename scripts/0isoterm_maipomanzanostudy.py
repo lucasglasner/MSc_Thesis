@@ -94,12 +94,12 @@ H0_ERA5_stodom.index = pd.to_datetime(H0_ERA5_stodom.index)
 try:
     H0_cr2met = pd.read_csv("datos/cr2met/freezinglevel_t2m_linregress.csv",index_col=0)
     H0_cr2met.index = pd.to_datetime(H0_cr2met.index)
-    H0_era5land   = pd.read_csv("datos/era5land/maipo/freezinglevel_t2m_linregress.csv",index_col=0)
+    H0_era5land   = pd.read_csv("datos/era5land/RioMaipoEnElManzano/freezinglevel_t2m_linregress.csv",index_col=0)
     H0_era5land.index = pd.to_datetime(H0_era5land.index)
    
     lm_cr2met     = pd.read_csv("datos/cr2met/t2m_linregress.csv",index_col=0)
     lm_cr2met.index = pd.to_datetime(lm_cr2met.index)
-    lm_era5land   = pd.read_csv("datos/era5land/maipo/t2m_linregress.csv",index_col=0)
+    lm_era5land   = pd.read_csv("datos/era5land/RioMaipoEnElManzano/t2m_linregress.csv",index_col=0)
     lm_era5land.index = pd.to_datetime(lm_era5land.index)
     
     H0_cr2met   = H0_cr2met[lm_cr2met.rsquared>0.8]
@@ -119,7 +119,7 @@ except:
     # =============================================================================
     
     dem2          = xr.open_dataset("datos/topography/basins/RioMaipoEnElManzano_ERA5LAND.nc").z
-    t2m_era5land  = xr.open_dataset("datos/era5land/maipo/2m_temperature.nc",chunks="auto").t2m
+    t2m_era5land  = xr.open_dataset("datos/era5land/RioMaipoEnElManzano/2m_temperature.nc",chunks="auto").t2m
     
     x  = dem.values.ravel()
     x1 = dem2.values.ravel()
