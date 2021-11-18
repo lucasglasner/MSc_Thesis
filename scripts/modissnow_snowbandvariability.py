@@ -213,7 +213,8 @@ tile_props = tile_props.loc[fSCA_bands.columns]
 #%%
 
 #Dates of tiles to show, and respective snowband distribution
-dates = ["2015-12-10","2006-11-10","2005-10-08"]
+# dates = ["2015-12-10","2006-11-10","2005-10-08"]
+dates = ["2015-09-01","2016-10-26","2012-11-25"]
 var   = fSCA_bands.loc[:,dates]
 
 cmap = cmocean.cm.ice #color for maps
