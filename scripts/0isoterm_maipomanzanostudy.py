@@ -81,9 +81,9 @@ precip_days = precip_days[precip_days].index
 # load era5 zero degree level
 # =============================================================================
 
-H0_ERA5_stodom = pd.read_csv("datos/era5/H0_ERA5_stodomingo.csv",index_col=0).deg0l
+H0_ERA5_stodom = pd.read_csv("datos/era5/H0_ERA5_stodomingo.csv",index_col=0).squeeze()
 H0_ERA5_stodom.index = pd.to_datetime(H0_ERA5_stodom.index)
-
+H0_ERA5_stodom = H0_ERA5_stodom[~H0_ERA5_stodom.index.duplicated()].dropna()
 #%%
 
 # =============================================================================
@@ -207,12 +207,13 @@ except:
     # Apply band mask, and compute % of pixels with temperature < 0°C by band
     # =========================================================================
     
-    flevel_bands      = np.empty((len(elevation_bands),len(precip_days)))
+    flevel_bands      = np.empty((len(elevation_bands),len(t2m_cr2met.time)))
     flevel_bands      = pd.DataFrame(flevel_bands,
                                       index = elevation_bands,
-                                      columns=precip_days)
-    for i in trange(len(precip_days)):
-        tile_date = precip_days[i]
+                                      columns=t2m_cr2met.time.values)
+    for i in trange(len(t2m_cr2met.time.values)):
+        # tile_date = precip_days[i]
+        tile_date = t2m_cr2met.time.values[i]
         for j in range(len(masks)):
             band = masks[j] 
             tile_band     = t2m_cr2met.sel(time=tile_date).where(band)
@@ -220,13 +221,48 @@ except:
             flevel_bands.iloc[j,i] = freezing_band.sum()/np.count_nonzero(band)
     flevel_bands.to_csv("datos/cr2met/freezinglevel_t2m_bands.csv")
 
+#%%
+
+var = flevel_bands#.loc[fSCA_bands.index<4.5e3,:]
+H50 = np.ones((var.shape[1]))*np.nan
+H20 = np.ones((var.shape[1]))*np.nan
+H80 = np.ones((var.shape[1]))*np.nan
+
+for i in trange(var.shape[1]):
+    idx1    = np.argwhere(np.diff(np.sign(var.iloc[:,i]-0.2*var.max(axis=0)[i]))).flatten()
+    idx2    = np.argwhere(np.diff(np.sign(var.iloc[:,i]-0.5*var.max(axis=0)[i]))).flatten()
+    idx3    = np.argwhere(np.diff(np.sign(var.iloc[:,i]-0.8*var.max(axis=0)[i]))).flatten()
+    if ((len(idx1)!=0) & (len(idx2)!=0) & (len(idx2)!=0)):
+        interp1 = interp1d([var.iloc[idx1[0],i],var.iloc[idx1[0]+1,i]],
+                           [var.index[idx1[0]],var.index[idx1[0]+1]])
+        interp2 = interp1d([var.iloc[idx2[0],i],var.iloc[idx2[0]+1,i]],
+                           [var.index[idx2[0]],var.index[idx2[0]+1]])
+        interp3 = interp1d([var.iloc[idx3[0],i],var.iloc[idx3[0]+1,i]],
+                           [var.index[idx3[0]],var.index[idx3[0]+1]])
+        try:
+            H20[i] = interp1(0.2)
+        except:
+            H20[i] = np.nan
+        try:
+            H50[i] = interp2(0.5)
+        except:
+            H50[i] = np.nan
+        try:
+            H80[i] = interp3(0.8)
+        except:
+            H80[i] = np.nan    
+H20 = pd.Series(H20,index=flevel_bands.columns)
+H50 = pd.Series(H50,index=flevel_bands.columns)
+H80 = pd.Series(H80,index=flevel_bands.columns)
+
+
 
 #%%
 timerange  = pd.date_range("1979-01-01T00:00:00","2021-12-31T00:00:00",freq="h")
-isotermas0 = [data.reindex(timerange) for data in [H0_stodomingo,H0_amdar,H0_cr2met,H0_era5land,H0_ERA5_stodom]] 
+isotermas0 = [data.squeeze().reindex(timerange) for data in [H0_stodomingo,H0_amdar,H0_cr2met,H0_era5land,H0_ERA5_stodom,H20,H50,H80]] 
 isotermas0 = pd.concat(isotermas0,axis=1)
 
-isotermas0.columns = ["stodomingo","amdar","cr2met","era5land","era5_NNstodomingo"]
+isotermas0.columns = ["stodomingo","amdar","cr2met","era5land","era5_NNstodomingo","H20_cr2met","H50_cr2met","H80_cr2met"]
 isotermas0 = isotermas0[isotermas0<10e3]
 isotermas0 = isotermas0[isotermas0>0]
 

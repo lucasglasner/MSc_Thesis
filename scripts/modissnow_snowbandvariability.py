@@ -369,13 +369,13 @@ for i in trange(var.shape[1]):
     interp3 = interp1d([var.iloc[idx3[0],i],var.iloc[idx3[0]+1,i]],
                        [var.index[idx3[0]],var.index[idx3[0]+1]])
     try:
-        H50[i] = interp1(0.2)
-    except:
-        H50[i] = np.nan
-    try:
-        H20[i] = interp2(0.5)
+        H20[i] = interp1(0.2)
     except:
         H20[i] = np.nan
+    try:
+        H50[i] = interp2(0.5)
+    except:
+        H50[i] = np.nan
     try:
         H80[i] = interp3(0.8)
     except:
@@ -386,8 +386,8 @@ for i in trange(var.shape[1]):
     # H20[i] = var.index[idx1[0]]
     # H50[i] = var.index[idx2[0]]
     # H80[i] = var.index[idx3[0]]
-H50 = pd.Series(H50,index=fSCA_bands.columns)
 H20 = pd.Series(H20,index=fSCA_bands.columns)
+H50 = pd.Series(H50,index=fSCA_bands.columns)
 H80 = pd.Series(H80,index=fSCA_bands.columns)
 # H80  = fSCA_bands.max(axis=0)*0.8
 # dH = pd.DataFrame(np.gradient(fSCA_bands)[0]).rolling(10,center=True,min_periods=2).mean().max(axis=0).values
@@ -556,6 +556,8 @@ for i in range(len(slimits.columns)-1):
             slimits.iloc[j,i] =  m.slope*slimits.iloc[j,5]+m.intercept
  
 
+
+#%%
 
 
 
