@@ -29,6 +29,9 @@ isotermas0.index = pd.to_datetime(isotermas0.index)
 snowlimits = pd.read_csv("datos/snowlimits_maipomanzano.csv",index_col=0)
 snowlimits.index = pd.to_datetime(snowlimits.index)
 
+snowcovers = pd.read_csv('datos/snowcovers_maipomanzano.csv',index_col=0)
+snowcovers.index = pd.to_datetime(snowcovers.index)
+
 
 #%%
 
