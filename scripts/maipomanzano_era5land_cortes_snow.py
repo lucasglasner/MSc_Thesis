@@ -20,7 +20,7 @@ import pandas as pd
 import regionmask
 import geopandas as gpd
 import matplotlib as mpl
-
+import datetime 
 #%%
 
 #ERA5LAND topography on MaipoEnElManzano basin.
@@ -71,49 +71,69 @@ SCA_ianigla.index = pd.to_datetime(SCA_ianigla.index)
 
 #%%
 
+
 SCOV_ERA5    = xr.open_dataset("datos/era5land/RioMaipoEnElManzano/snow_cover.nc",chunks="auto")
 SCOV_ERA5    = SCOV_ERA5.snowc[23:,:,:][::12,:,:][::2,:,:]
 SCA_ERA5     = pd.Series(np.empty(len(SCOV_ERA5.time))*np.nan,index=SCOV_ERA5.time.values)
 
-for i,time in enumerate(SCOV_ERA5.time.values):
-    sca = (SCOV_ERA5[i,:,:]>95).values.sum()/49
-    SCA_ERA5[time] = sca
+for th in [20,45,70,95]:
+    t1 = datetime.datetime.now()
+    for i,time in enumerate(SCOV_ERA5.time.values):
+        sca = (SCOV_ERA5[i,:,:]>th).values.sum()/49
+        SCA_ERA5[time] = sca
+        
+    SCA_ERA5 = SCA_ERA5.resample("d").mean()*100
+    SCA_ERA5 = SCA_ERA5.reindex(SCA_ianigla.index)
     
-SCA_ERA5 = SCA_ERA5.resample("d").mean()*100
-SCA_ERA5 = SCA_ERA5.reindex(SCA_ianigla.index)
+    t2 = datetime.datetime.now()
+    dt = t2-t1
+    print(dt)
+    SCA_ERA5.dropna().to_csv("datos/era5land/RioMaipoEnElManzano/SCA_ERA5LAND_"+str(th)+".csv")
+    
+from glob import glob
+s = [pd.read_csv(i,index_col=0) for i in glob("datos/era5land/RioMaipoEnElManzano/SCA_ERA5LAND*")]
+s = pd.concat(s,axis=1)
+s.columns = ["20","45","70","95"]
+s.to_csv("datos/era5land/RioMaipoEnElManzano/SCA_ERA5LAND_threshold.csv")
 
 #%%
 from glob import glob
 import datetime
 from tqdm import trange
-SWE_cortes    = [xr.open_dataset(path) for path in glob("datos/ANDES_SWE_Cortes/*.nc")]
-SWE_cortes    = [d.assign_coords({"time":np.arange(1,len(d.time)+1)}) for d,yr in zip(SWE_cortes,np.arange(1985,2016))]
-# SWE_cortes    = xr.concat(SWE_cortes, "time")
-# SWE_cortes    = SWE_cortes.assign_coords({"time":np.arange(SWE_cortes.time.shape[0])})
-# SCA_cortes    = pd.Series(np.empty(len(SWE_cortes.time))*np.nan,index=SWE_cortes.time.values)
 
-models = []
-for swe_limit in [10,25,50,75,100]:
-    SCA_cortes = []
-    for j,file in enumerate(SWE_cortes):
-        for i in trange(file.time.shape[0]):
-            sca=(file.SWE[i,:,:]>swe_limit).sum().load().item()
-            SCA_cortes.append(sca)
-            
-    SCA_cortes = pd.Series(np.array(SCA_cortes))/467798
-    SCA_cortes.index = pd.date_range("1984-04-01","2015-04-01",freq="1d")[:-1]
-    SCA_cortes = SCA_cortes*100
-    models.append(SCA_cortes)
 
-sca_cortes = pd.concat(models,axis=1)
-sca_cortes.columns = [10,25,50,75,100]
-sca_cortes.to_csv("datos/ANDES_SWE_Cortes/maipomanzano_SCA.csv")
-# for i,time in enumerate(SCA_cortes.index):
-#     sca = (SWE_cortes.SWE[i,:,:]>10).sum().load().item()
-#     SCA_cortes[time] = sca
+try:
+    sca_cortes = pd.read_csv("datos/ANDES_SWE_Cortes/maipomanzano_SsCA.csv",index_col=0)
+    sca_cortes.index = pd.to_datetime(sca_cortes.index)
+except:
+    SWE_cortes    = [xr.open_dataset(path) for path in glob("datos/ANDES_SWE_Cortes/*.nc")]
+    SWE_cortes    = [d.assign_coords({"time":np.arange(1,len(d.time)+1)}) for d,yr in zip(SWE_cortes,np.arange(1985,2016))]
+    # SWE_cortes    = xr.concat(SWE_cortes, "time")
+    # SWE_cortes    = SWE_cortes.assign_coords({"time":np.arange(SWE_cortes.time.shape[0])})
+    # SCA_cortes    = pd.Series(np.empty(len(SWE_cortes.time))*np.nan,index=SWE_cortes.time.values)
     
-# SCA_cortes = SCA_ERA5.resample("d").mean()*100
-# SCA_cortes = SCA_ERA5.reindex(SCA_ianigla.index)
+    models = []
+    for swe_limit in [10,25,50,75,100,150,200,250]:
+        SCA_cortes = []
+        for j,file in enumerate(SWE_cortes):
+            for i in trange(file.time.shape[0]):
+                sca=(file.SWE[i,:,:]>swe_limit).sum().load().item()
+                SCA_cortes.append(sca)
+                
+        SCA_cortes = pd.Series(np.array(SCA_cortes))/467798
+        SCA_cortes.index = pd.date_range("1984-04-01","2015-04-01",freq="1d")[:-1]
+        SCA_cortes = SCA_cortes*100
+        models.append(SCA_cortes)
+    
+    sca_cortes = pd.concat(models,axis=1)
+    sca_cortes.columns = [10,25,50,75,100,150,200,250]
+    sca_cortes.to_csv("datos/ANDES_SWE_Cortes/maipomanzano_SCA.csv")
+    # for i,time in enumerate(SCA_cortes.index):
+    #     sca = (SWE_cortes.SWE[i,:,:]>10).sum().load().item()
+    #     SCA_cortes[time] = sca
+        
+    # SCA_cortes = SCA_ERA5.resample("d").mean()*100
+    # SCA_cortes = SCA_ERA5.reindex(SCA_ianigla.index)
 
 #%%
 # SCOV_ERA5    = xr.open_dataset("datos/era5land/maipo/snow_depth_water_equivalent.nc",chunks="auto")
@@ -139,7 +159,7 @@ ax3 = fig.add_subplot(312)
 # ax4 = fig.add_subplot(243)
 fig.tight_layout(pad=3)
 
-SCA_cortes = sca_cortes.iloc[:,5]
+SCA_cortes = sca_cortes.iloc[:,7]
 
 SCA_ianigla.plot(ax=ax,alpha=0.7,label="IANIGLA")
 SCA_cortes.plot(ax=ax,alpha=0.7,label="Cortes")

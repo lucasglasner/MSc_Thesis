@@ -26,7 +26,6 @@ from taylorDiagram import TaylorDiagram, test1, test2
 isotermas0 = pd.read_csv("datos/isotermas0_maipomanzano.csv",index_col=0)
 isotermas0.index = pd.to_datetime(isotermas0.index)
 
-
 snowlimits = pd.read_csv("datos/snowlimits_maipomanzano.csv",index_col=0)
 snowlimits.index = pd.to_datetime(snowlimits.index)
 

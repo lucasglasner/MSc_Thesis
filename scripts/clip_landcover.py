@@ -11,6 +11,8 @@ Created on Sun Aug 29 21:54:21 2021
 
 """
 
+
+
 import geopandas as gpd
 import os
 
@@ -50,8 +52,8 @@ for polygon in polygons:
     polygon.to_file(path)
     if ~os.path.isfile("datos/vector/"+name+".shp"):
         polygon.to_file("datos/vector/"+name+".shp")
-    os.system("gdalwarp -of netCDF -cutline "+path+" -crop_to_cutline "+landcover_path+
-              " tmp/"+name+"_tmp.nc")
+    os.system("gdalwarp -of netCDF -cutline "+path+" -crop_to_cutline "+
+              landcover_path+" tmp/"+name+"_tmp.nc")
     os.system("gdalwarp -t_srs '+proj=longlat +datum=WGS84 +nodefs'"+
               " tmp/"+name+"_tmp.nc "+
               " datos/landcover/basins/"+name+".nc")
