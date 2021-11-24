@@ -84,10 +84,12 @@ class TaylorDiagram(object):
         ax.axis["top"].label.set_text("Correlation")
 
         ax.axis["left"].set_axis_direction("bottom")  # "X axis"
-        ax.axis["left"].label.set_text("Standard deviation")
+        ax.axis["left"].major_ticklabels.set_rotation(45)
+        # ax.axis["left"].label.set_text("Standard deviation")
 
         ax.axis["right"].set_axis_direction("top")    # "Y-axis"
         ax.axis["right"].toggle(ticklabels=True)
+        ax.axis["right"].major_ticklabels.set_rotation(45)
         ax.axis["right"].major_ticklabels.set_axis_direction(
             "bottom" if extend else "left")
 
@@ -156,8 +158,8 @@ def test1():
     m3 = np.sin(x-np.pi/10)                     # Model 3
 
     # Compute stddev and correlation coefficient of models
-    samples = np.array([ [m.std(ddof=1), np.corrcoef(data, m)[0, 1]]
-                         for m in (m1, m2, m3)])
+    samples = np.array([[m.std(ddof=1), np.corrcoef(data, m)[0, 1]]
+                        for m in (m1, m2, m3)])
 
     fig = plt.figure(figsize=(10, 4))
 
@@ -189,7 +191,7 @@ def test1():
 
     # Add a figure legend
     fig.legend(dia.samplePoints,
-               [ p.get_label() for p in dia.samplePoints ],
+               [p.get_label() for p in dia.samplePoints],
                numpoints=1, prop=dict(size='small'), loc='upper right')
 
     return dia
@@ -235,7 +237,7 @@ def test2():
 
     # Add a figure legend and title
     fig.legend(dia.samplePoints,
-               [ p.get_label() for p in dia.samplePoints ],
+               [p.get_label() for p in dia.samplePoints],
                numpoints=1, prop=dict(size='small'), loc='upper right')
     fig.suptitle("Taylor diagram", size='x-large')  # Figure title
 
@@ -247,5 +249,4 @@ if __name__ == '__main__':
     #dia = test1()
     #dia = test2()
 
-    #plt.show()
-
+    # plt.show()
