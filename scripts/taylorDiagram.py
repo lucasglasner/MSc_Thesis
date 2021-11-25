@@ -102,8 +102,8 @@ class TaylorDiagram(object):
         self.ax = ax.get_aux_axes(tr)   # Polar coordinates
 
         # Add reference point and stddev contour
-        l, = self.ax.plot([0], self.refstd, 'k*',
-                          ls='', ms=10, label=label)
+        l, = self.ax.plot([0], self.refstd, 'r*',
+                          ls='', ms=12, label=label, mec="k", zorder=100)
         t = np.linspace(0, self.tmax)
         r = np.zeros_like(t) + self.refstd
         self.ax.plot(t, r, 'k--', label='_')
@@ -111,15 +111,17 @@ class TaylorDiagram(object):
         # Collect sample points for latter use (e.g. legend)
         self.samplePoints = [l]
 
+        # Collect sample percentual bias with respect to reference
+        self.bias = []
+
     def add_sample(self, stddev, corrcoef, *args, **kwargs):
         """
         Add sample (*stddev*, *corrcoeff*) to the Taylor
         diagram. *args* and *kwargs* are directly propagated to the
         `Figure.plot` command.
         """
-
-        l, = self.ax.plot(np.arccos(corrcoef), stddev,
-                          *args, **kwargs)  # (theta, radius)
+        #theta, radius
+        l = self.ax.scatter(np.arccos(corrcoef), stddev, *args, **kwargs)
         self.samplePoints.append(l)
 
         return l
