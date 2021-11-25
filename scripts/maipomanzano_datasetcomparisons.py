@@ -18,30 +18,66 @@ Created on Mon Nov 22 11:14:35 2021
 from taylorDiagram import TaylorDiagram, test1, test2
 import xarray as xr
 import numpy as np
-from scipy.fftpack import rfft, irfft, fftfreq, fft
+from scipy.fftpack import rfft, irfft, fftfreq, fft, ifft
 from scipy.stats import linregress
 import matplotlib.pyplot as plt
 import scipy.stats as st
 import pandas as pd
-
+import scipy.signal as signal
 import sys
 
 sys.path.append('scripts/')
+
+
+def seasonal_decompose(ts, period, nharmonics=3, bandwidth=2):
+    """
+    Parameters
+    ----------
+    ts : Time series data in a pandas series format, with timestamps
+         in the index.
+    period : period of the season
+    nharmonics : Number of harmonics to remove, default is 3.
+
+    Returns
+    -------
+    season : Seasonal component of the time series.
+    anomaly : The time series anomaly without the seasonal cycle.
+    """
+    n = len(ts)
+    ft = np.fft.fft(ts)
+    ft[0] = 0  # Remove mean#
+    for i in range(nharmonics):  # Filter cycle#
+        pos = n//(period//(i+1))
+        ft[pos-bandwidth:pos+bandwidth] = 0
+        ft[n-pos-bandwidth:n-pos+bandwidth] = 0
+        # ft[pos]=0
+        # ft[n-pos]=0
+    anomaly = np.fft.ifft(ft).real
+    anomaly = pd.Series(anomaly, index=ts.index)
+    season = ts-anomaly
+    return season, anomaly
+
+
 # %%
 
 # =============================================================================
 # Load data
 # =============================================================================
-
-
 freezinglevel = pd.read_csv("datos/isotermas0_maipomanzano.csv", index_col=0)
 freezinglevel.index = pd.to_datetime(freezinglevel.index)
+mask = (freezinglevel.index.month == 2) & (freezinglevel.index.day == 29)
+freezinglevel = freezinglevel.iloc[~mask, :]
+freezinglevel = freezinglevel.resample("d").mean()
 
 snowlimits = pd.read_csv("datos/snowlimits_maipomanzano.csv", index_col=0)
 snowlimits.index = pd.to_datetime(snowlimits.index)
+mask = (snowlimits.index.month == 2) & (snowlimits.index.day == 29)
+snowlimits = snowlimits.iloc[~mask, :]
 
 snowcovers = pd.read_csv('datos/snowcovers_maipomanzano.csv', index_col=0)
 snowcovers.index = pd.to_datetime(snowcovers.index)
+mask = (snowcovers.index.month == 2) & (snowcovers.index.day == 29)
+snowcovers = snowcovers.iloc[~mask, :]
 
 # %%
 
@@ -49,14 +85,43 @@ snowcovers.index = pd.to_datetime(snowcovers.index)
 # Compute mean annual cycles
 # =============================================================================
 
-FL_sc = freezinglevel.resample("d").mean()
-FL_sc = FL_sc.groupby(FL_sc.index.month).mean()
 
-SL_sc = snowlimits.groupby(snowlimits.index.month).mean()
+m1 = [seasonal_decompose(freezinglevel[m].dropna(), 365, 3, 20)
+      for m in freezinglevel]
+m2 = [seasonal_decompose(snowlimits[m].dropna(), 365, 3, 20)
+      for m in snowlimits]
+m3 = [seasonal_decompose(snowcovers[m].dropna(), 365, 3, 20)
+      for m in snowcovers]
 
-SC_sc = snowcovers.groupby(snowcovers.index.month).mean()
+FL_sc = pd.concat([m[0] for m in m1], axis=1)
+FL_sc.columns = freezinglevel.columns
+SL_sc = pd.concat([m[0] for m in m2], axis=1)
+SL_sc.columns = snowlimits.columns
+SC_sc = pd.concat([m[0] for m in m3], axis=1)
+SC_sc.columns = snowcovers.columns
+# FL_sc = freezinglevel.resample("d").mean()
+# FL_sc = freezinglevel.groupby(freezinglevel.index.dayofyear).mean().dropna()
+# # FL_sc.drop(366,axis=0)
+
+# SL_sc = snowlimits.groupby(snowlimits.index.dayofyear).mean().dropna()
+# SL_sc.drop(366,axis=0)
 
 
+# SC_sc = snowcovers.groupby(snowcovers.index.dayofyear).mean().dropna()
+# SC_sc.drop(366,axis=0)
+
+
+# d=snowcovers.iloc[:,1].dropna()
+# a,x = seasonal_decompose(d,365,nharmonics=3,bandwidth=50)
+# ft = np.fft.fft(x)
+
+# periods = 1/fftfreq(d.size)
+
+# # plt.semilogx(periods,np.abs(ft))
+# yr="2013"
+# a[yr].plot();d[yr].plot()
+# a.groupby([a.index.dayofyear,a.index.year]).mean().plot(alpha=0.2)
+# d.groupby([d.index.dayofyear,d.index.year]).mean().plot(alpha=0.2)
 # %%
 
 # =============================================================================
@@ -133,7 +198,7 @@ td2 = TaylorDiagram(ref2.std(), fig=fig, rect=233,
 
 
 td3 = TaylorDiagram(ref3.std(), fig=fig, rect=234,
-                    srange=(0, 2.0))
+                    srange=(0, 2.5))
 td4 = TaylorDiagram(ref4.std(), fig=fig, rect=235,
                     srange=(0, 2.5))
 td5 = TaylorDiagram(ref5.std(), fig=fig, rect=236,
@@ -181,9 +246,8 @@ for n, var in enumerate([freezinglevel, snowlimits, snowcovers, FL_sc, SL_sc, SC
     for i, (std, corr) in enumerate(zip(eval("std"+str(n)), eval("corr"+str(n)))):
         td = eval("td"+str(n))
         td.add_sample(std, corr,
-                      marker="o", s=70,
-                      c=eval("pbias"+str(n))[i], cmap="twilight_shifted", vmin=-25, vmax=25,
-                      edgecolor="k",
+                      marker='$%d$' % (i+1), s=100,
+                      c=eval("pbias"+str(n))[i], cmap="nipy_spectral_r", vmin=-25, vmax=25,
                       label=var.columns[i])
 
 freezinglevel["STODOMINGO"] = ref0
@@ -206,16 +270,17 @@ for ax in [ax0, ax1, ax2, ax3, ax4, ax5]:
 
 titles = ["Zero-Degree Level", "Snow limit", "Snow Cover"]
 for i, td in enumerate([td0, td1, td2]):
-
-    handles = []
-    handles.append(td.samplePoints[0])
-    for point in td.samplePoints[1:]:
-        handles.append(point.legend_elements()[0][0])
-    for h in handles:
-        h._markeredgecolor = "k"
-    lg = td.ax.legend(handles, td.ax.get_legend_handles_labels()[1],
-                      loc=(-0.05, 1.1), ncol=2, fontsize=8)
+    lg = td.ax.legend(loc=(-0.05, 1.1), ncol=2, fontsize=8)
     lg.set_title(titles[i], prop={"size": 12})
+    # handles = []
+    # handles.append(td.samplePoints[0])
+    # for point in td.samplePoints[1:]:
+    #     handles.append(point.legend_elements()[0][0])
+    # for h in handles:
+    #     h._markeredgecolor = "k"
+    # lg = td.ax.legend(handles, td.ax.get_legend_handles_labels()[1],
+    #                   loc=(-0.05, 1.1), ncol=2, fontsize=8)
+    # lg.set_title(titles[i], prop={"size": 12})
 
 
 cax = fig.add_axes([ax5.get_position().xmax*1.05,

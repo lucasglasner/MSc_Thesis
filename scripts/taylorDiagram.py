@@ -121,7 +121,8 @@ class TaylorDiagram(object):
         `Figure.plot` command.
         """
         #theta, radius
-        l = self.ax.scatter(np.arccos(corrcoef), stddev, *args, **kwargs)
+        l = self.ax.scatter(np.arccos(corrcoef), stddev, zorder=50,
+                            *args, **kwargs)
         self.samplePoints.append(l)
 
         return l
