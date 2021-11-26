@@ -14,6 +14,8 @@ __author__ = "Yannick Copin <yannick.copin@laposte.net>"
 import numpy as np
 import matplotlib.pyplot as plt
 
+# %%
+
 
 class TaylorDiagram(object):
     """
@@ -25,7 +27,7 @@ class TaylorDiagram(object):
     """
 
     def __init__(self, refstd,
-                 fig=None, rect=111, label='_', srange=(0, 1.5), extend=False):
+                 rect=111, fig=None, label='_', srange=(0, 1.5), extend=False):
         """
         Set up Taylor diagram axes, i.e. single quadrant polar
         plot, using `mpl_toolkits.axisartist.floating_axes`.
@@ -73,7 +75,7 @@ class TaylorDiagram(object):
         if fig is None:
             fig = plt.figure()
 
-        ax = FA.FloatingSubplot(fig, rect, grid_helper=ghelper)
+        ax = FA.FloatingSubplot(fig, *rect, grid_helper=ghelper)
         fig.add_subplot(ax)
 
         # Adjust axes
@@ -246,6 +248,23 @@ def test2():
 
     return dia
 
+
+def test3():
+    pos = [(2, 2, 1), (2, 2, 2), (2, 2, 3)]
+    taylors = []
+    fig = plt.figure(figsize=(10, 5))
+
+    # ax = FA.FloatingSubplot(fig, 111, grid_helper=ghelper)
+    # fig.add_subplot(ax)
+    for i, p in enumerate(pos):
+        taylors.append(TaylorDiagram(1,
+                                     fig=fig,
+                                     rect=p))
+
+    return taylors
+
+
+# test3()
 
 if __name__ == '__main__':
     pass

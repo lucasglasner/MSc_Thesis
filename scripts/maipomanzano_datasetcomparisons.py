@@ -25,6 +25,7 @@ import scipy.stats as st
 import pandas as pd
 import scipy.signal as signal
 import sys
+from matplotlib import rcParams
 
 sys.path.append('scripts/')
 
@@ -78,6 +79,9 @@ snowcovers = pd.read_csv('datos/snowcovers_maipomanzano.csv', index_col=0)
 snowcovers.index = pd.to_datetime(snowcovers.index)
 mask = (snowcovers.index.month == 2) & (snowcovers.index.day == 29)
 snowcovers = snowcovers.iloc[~mask, :]
+snowcovers.drop(["CORTES_25SWE", "CORTES_75SWE",
+                 "CORTES_150SWE", "CORTES_250SWE"],
+                axis=1, inplace=True)
 
 # %%
 
@@ -99,29 +103,19 @@ SL_sc = pd.concat([m[0] for m in m2], axis=1)
 SL_sc.columns = snowlimits.columns
 SC_sc = pd.concat([m[0] for m in m3], axis=1)
 SC_sc.columns = snowcovers.columns
-# FL_sc = freezinglevel.resample("d").mean()
-# FL_sc = freezinglevel.groupby(freezinglevel.index.dayofyear).mean().dropna()
-# # FL_sc.drop(366,axis=0)
 
-# SL_sc = snowlimits.groupby(snowlimits.index.dayofyear).mean().dropna()
-# SL_sc.drop(366,axis=0)
+# =============================================================================
+# Compute anomalies
+# =============================================================================
 
 
-# SC_sc = snowcovers.groupby(snowcovers.index.dayofyear).mean().dropna()
-# SC_sc.drop(366,axis=0)
+FL_a = pd.concat([m[1] for m in m1], axis=1)
+FL_a.columns = freezinglevel.columns
+SL_a = pd.concat([m[1] for m in m2], axis=1)
+SL_a.columns = snowlimits.columns
+SC_a = pd.concat([m[1] for m in m3], axis=1)
+SC_a.columns = snowcovers.columns
 
-
-# d=snowcovers.iloc[:,1].dropna()
-# a,x = seasonal_decompose(d,365,nharmonics=3,bandwidth=50)
-# ft = np.fft.fft(x)
-
-# periods = 1/fftfreq(d.size)
-
-# # plt.semilogx(periods,np.abs(ft))
-# yr="2013"
-# a[yr].plot();d[yr].plot()
-# a.groupby([a.index.dayofyear,a.index.year]).mean().plot(alpha=0.2)
-# d.groupby([d.index.dayofyear,d.index.year]).mean().plot(alpha=0.2)
 # %%
 
 # =============================================================================
@@ -152,153 +146,257 @@ SC_spring = snowcovers[[x in spring for x in snowcovers.index.month]]
 # %%
 
 # =============================================================================
-# Figure showing taylor diagram of complete time series and seasonal cycles
+# Figure showing taylor diagram for each season
 # =============================================================================
 
-# =============================================================================
-# Init
-# =============================================================================
-fig = plt.figure(figsize=(12, 8))
-fig.tight_layout()
-ax0 = fig.add_subplot(231)
-ax1 = fig.add_subplot(232)
-ax2 = fig.add_subplot(233)
-ax3 = fig.add_subplot(234)
-ax4 = fig.add_subplot(235)
-ax5 = fig.add_subplot(236)
+plt.rcParams.update({'font.size': 12})
+# Create figure
+fig = plt.figure(figsize=(18, 13.5))
+# Define axes grid, and positions
+pos = [[[3, 4, 1], [3, 4, 2], [3, 4, 3], [3, 4, 4]],
+       [[3, 4, 5], [3, 4, 6], [3, 4, 7], [3, 4, 8]],
+       [[3, 4, 9], [3, 4, 10], [3, 4, 11], [3, 4, 12]]]
 
-
-# =============================================================================
-# Setting refrence data
-# =============================================================================
-ref0 = freezinglevel["STODOMINGO"].copy()
-ref1 = snowlimits["IANIGLA"].copy()
-ref2 = snowcovers["IANIGLA"].copy()
-ref3 = FL_sc["STODOMINGO"].copy()
-ref4 = SL_sc["IANIGLA"].copy()
-ref5 = SC_sc["IANIGLA"].copy()
-
-freezinglevel.drop("STODOMINGO", axis=1, inplace=True)
-snowlimits.drop("IANIGLA", axis=1, inplace=True)
-snowcovers.drop("IANIGLA", axis=1, inplace=True)
-FL_sc.drop("STODOMINGO", axis=1, inplace=True)
-SL_sc.drop("IANIGLA", axis=1, inplace=True)
-SC_sc.drop("IANIGLA", axis=1, inplace=True)
-
-# =============================================================================
-# Creating diagrams and plotting data
-# =============================================================================
-
-td0 = TaylorDiagram(ref0.std(), fig=fig, rect=231,
-                    srange=(0, 2.0), label="STODOMINGO")
-td1 = TaylorDiagram(ref1.std(), fig=fig, rect=232,
-                    srange=(0, 2.5), label="IANIGLA")
-td2 = TaylorDiagram(ref2.std(), fig=fig, rect=233,
-                    srange=(0, 1.5), label="IANIGLA")
-
-
-td3 = TaylorDiagram(ref3.std(), fig=fig, rect=234,
-                    srange=(0, 2.5))
-td4 = TaylorDiagram(ref4.std(), fig=fig, rect=235,
-                    srange=(0, 2.5))
-td5 = TaylorDiagram(ref5.std(), fig=fig, rect=236,
-                    srange=(0, 1.5))
-
-std0 = [freezinglevel[m].std() for m in freezinglevel]
-std1 = [snowlimits[m].std() for m in snowlimits]
-std2 = [snowcovers[m].std() for m in snowcovers]
-std3 = [FL_sc[m].std() for m in FL_sc]
-std4 = [SL_sc[m].std() for m in SL_sc]
-std5 = [SC_sc[m].std() for m in SC_sc]
-
-corr0 = []
-corr1 = []
-corr2 = []
-corr3 = []
-corr4 = []
-corr5 = []
-
-pbias0 = [100*np.sum(freezinglevel[m]-ref0)/np.sum(ref0)
-          for m in freezinglevel]
-pbias1 = [100*np.sum(snowlimits[m]-ref1)/np.sum(ref1) for m in snowlimits]
-pbias2 = [100*np.sum(snowcovers[m]-ref2)/np.sum(ref2) for m in snowcovers]
-pbias3 = [100*np.sum(FL_sc[m]-ref3)/np.sum(ref3) for m in FL_sc]
-pbias4 = [100*np.sum(SL_sc[m]-ref4)/np.sum(ref4) for m in SL_sc]
-pbias5 = [100*np.sum(SC_sc[m]-ref5)/np.sum(ref5) for m in SC_sc]
-
-
-cmaps = [plt.cm.plasma(np.linspace(0, 1, freezinglevel.shape[1])),
-         plt.cm.nipy_spectral(np.linspace(0, 1, snowlimits.shape[1])),
-         plt.cm.viridis(np.linspace(0, 1, snowcovers.shape[1])),
-         plt.cm.plasma(np.linspace(0, 1, freezinglevel.shape[1])),
-         plt.cm.nipy_spectral(np.linspace(0, 1, snowlimits.shape[1])),
-         plt.cm.viridis(np.linspace(0, 1, snowcovers.shape[1]))]
-
-for n, var in enumerate([freezinglevel, snowlimits, snowcovers, FL_sc, SL_sc, SC_sc]):
-    for i in range(var.shape[1]):
-        index = eval("ref"+str(n)).dropna().index
-        index = index.intersection(var.iloc[:, i].dropna().index)
-        x = eval("ref"+str(n)).reindex(index).dropna()
-        y = var.iloc[:, i].reindex(index).dropna()
-        eval("corr"+str(n)).append(st.pearsonr(x.values, y.values)[0])
-
-    colors = cmaps[n]
-    for i, (std, corr) in enumerate(zip(eval("std"+str(n)), eval("corr"+str(n)))):
-        td = eval("td"+str(n))
-        td.add_sample(std, corr,
-                      marker='$%d$' % (i+1), s=100,
-                      c=eval("pbias"+str(n))[i], cmap="nipy_spectral_r", vmin=-25, vmax=25,
-                      label=var.columns[i])
-
-freezinglevel["STODOMINGO"] = ref0
-snowlimits["IANIGLA"] = ref1
-snowcovers["IANIGLA"] = ref2
-FL_sc["STODOMINGO"] = ref3
-SL_sc["IANIGLA"] = ref4
-SC_sc["IANIGLA"] = ref5
-# =============================================================================
-# make up
-# =============================================================================
-for td in [td0, td1, td2, td3, td4, td5]:
-    td.add_grid(ls=":")
-    contours = td.add_contours(colors='0.5', levels=5)
-    plt.clabel(contours, inline=1, fontsize=10, fmt='%.0f')
-
-for ax in [ax0, ax1, ax2, ax3, ax4, ax5]:
-    ax.axis("off")
-
+# Empty list to store graph attributes
+axes = []
+taylors = []
 
 titles = ["Zero-Degree Level", "Snow limit", "Snow Cover"]
-for i, td in enumerate([td0, td1, td2]):
-    lg = td.ax.legend(loc=(-0.05, 1.1), ncol=2, fontsize=8)
-    lg.set_title(titles[i], prop={"size": 12})
-    # handles = []
-    # handles.append(td.samplePoints[0])
-    # for point in td.samplePoints[1:]:
-    #     handles.append(point.legend_elements()[0][0])
-    # for h in handles:
-    #     h._markeredgecolor = "k"
-    # lg = td.ax.legend(handles, td.ax.get_legend_handles_labels()[1],
-    #                   loc=(-0.05, 1.1), ncol=2, fontsize=8)
-    # lg.set_title(titles[i], prop={"size": 12})
+refs = ["STODOMINGO", "IANIGLA", "IANIGLA"]  # References
+var_names = ["FL", "SL", "SC"]  # Rows
+seasons = ["summer", "autumn", "winter", "spring"]  # Columns
+variables = []  # To store vars
+scales = [[2, 2, 1.5, 1.5],  # X axis scale
+          [2.5, 2.3, 2.3, 2.3],
+          [3, 2.5, 2, 1.2]]
 
+for i, name in enumerate(var_names):  # Loop over rows
+    taylors.append([])
+    axes.append([])
+    variables.append([])
+    for j, seas in enumerate(seasons):  # Loop over columns
+        scale = scales[i][j]
+        variables[i].append("_".join([name, seas]))  # Define variable name
+        var = eval(variables[i][j]).copy()  # Evaluate variable
+        # Grab reference from data matrix and drop it
+        ref = var[refs[i]]
+        var = var.drop(refs[i], axis=1)
+        # Create taylor diagram instance
+        td = TaylorDiagram(ref.dropna().std(),
+                           rect=pos[i][j],
+                           fig=fig,
+                           srange=(0, scale),
+                           extend=False,
+                           label=ref.name)
+        # Empty list for storing pearson correlation, standard deviation
+        # and percentual bias.
+        corr = []
+        std = []
+        pbias = []
+        for m, model in enumerate(var.columns):
+            # Compute model standard deviations:
+            std.append(var[model].dropna().std())
+            # Compute model pearson correlation against reference
+            index = ref.dropna().index
+            index = index.intersection(var[model].dropna().index)
+            x = ref.reindex(index).dropna()
+            y = var[model].reindex(index).dropna()
+            corr.append(st.pearsonr(x.values, y.values)[0])
+            # Compute model percentual bias against reference
+            bias = np.sum(ref-var[model])/np.sum(ref)
+            pbias.append(100*bias)
+            del x, y, index
+            # Plot points inot taylor diagram
+            td.add_sample(std[m], corr[m],
+                          marker='$%d$' % (m+1),
+                          s=150,
+                          c=pbias[m], cmap="nipy_spectral",
+                          vmin=-25, vmax=25,
+                          label=model)
+        # Some make up (i.e RMS contours and grid)
+        td.add_grid(ls=":")
+        contours = td.add_contours(colors='0.5', levels=5, alpha=0.5)
+        plt.clabel(contours, inline=1, fontsize=10, fmt='%.0f')
 
-cax = fig.add_axes([ax5.get_position().xmax*1.05,
-                    ax5.get_position().ymin,
-                    0.01,
-                    ax2.get_position().ymax*0.9])
+        # Save taylor class and axes
+        taylors[i].append(td)
+        axes[i].append(td.ax)
+    # Add legend
+    lg = axes[i][0].legend(loc=(-2.1, 0.2), ncol=2, fontsize=15)
+    lg.set_title(titles[i], prop={"size": 18})
 
+# Add a colorbar
+x = axes[0][3].get_position().xmax*1.05
+y = axes[2][3].get_position().ymin
+w = 0.01
+h = axes[0][3].get_position().ymax-axes[2][3].get_position().ymin
+cax = fig.add_axes([x, y, w, h])
 cb = fig.colorbar(td.samplePoints[1], cax=cax,
                   ticks=np.arange(-25, 25+5, 5))
-cb.set_label(label='Percent Bias (%)', fontsize=12)
-fig.text(0.08, 0.25, "Mean Anual Cycle", ha="center", va="center",
-         rotation=90, fontsize=12)
-fig.text(0.08, 0.75, "Complete time series", ha="center", va="center",
-         rotation=90, fontsize=12)
+cb.set_label("Percent Bias (%)", fontsize=18)
+del x, y, w, h
 
+# Add titles
+for j in range(len(seasons)):
+    bbox = axes[0][j].get_position()
+    fig.text(bbox.xmin+.08, bbox.ymax*1.05,
+             seasons[j], ha="center", va="center",
+             fontsize=18)
 
-plt.savefig("plots/maipomanzano/datasetcomparison/taylor_anualcycle_full.pdf",
+# Adjust figure and save
+fig.subplots_adjust(wspace=3, hspace=3)
+plt.savefig("plots/maipomanzano/datasetcomparison/taylor_seasons.pdf",
             dpi=150, bbox_inches="tight")
+# %%
+
+# # =============================================================================
+# # Figure showing taylor diagram of complete time series and seasonal cycles
+# # =============================================================================
+
+# # =============================================================================
+# # Init
+# # =============================================================================
+# fig = plt.figure(figsize=(12, 8))
+# fig.tight_layout()
+# ax0 = fig.add_subplot(231)
+# ax1 = fig.add_subplot(232)
+# ax2 = fig.add_subplot(233)
+# ax3 = fig.add_subplot(234)
+# ax4 = fig.add_subplot(235)
+# ax5 = fig.add_subplot(236)
+
+
+# # =============================================================================
+# # Setting refrence data
+# # =============================================================================
+# ref0 = freezinglevel["STODOMINGO"].copy()
+# ref1 = snowlimits["IANIGLA"].copy()
+# ref2 = snowcovers["IANIGLA"].copy()
+# ref3 = FL_sc["STODOMINGO"].copy()
+# ref4 = SL_sc["IANIGLA"].copy()
+# ref5 = SC_sc["IANIGLA"].copy()
+
+# freezinglevel.drop("STODOMINGO", axis=1, inplace=True)
+# snowlimits.drop("IANIGLA", axis=1, inplace=True)
+# snowcovers.drop("IANIGLA", axis=1, inplace=True)
+# FL_sc.drop("STODOMINGO", axis=1, inplace=True)
+# SL_sc.drop("IANIGLA", axis=1, inplace=True)
+# SC_sc.drop("IANIGLA", axis=1, inplace=True)
+
+# # =============================================================================
+# # Creating diagrams and plotting data
+# # =============================================================================
+
+# td0 = TaylorDiagram(ref0.std(), fig=fig, rect=231,
+#                     srange=(0, 2.0), label="STODOMINGO")
+# td1 = TaylorDiagram(ref1.std(), fig=fig, rect=232,
+#                     srange=(0, 2.5), label="IANIGLA")
+# td2 = TaylorDiagram(ref2.std(), fig=fig, rect=233,
+#                     srange=(0, 1.5), label="IANIGLA")
+
+
+# td3 = TaylorDiagram(ref3.std(), fig=fig, rect=234,
+#                     srange=(0, 2.5))
+# td4 = TaylorDiagram(ref4.std(), fig=fig, rect=235,
+#                     srange=(0, 2.5))
+# td5 = TaylorDiagram(ref5.std(), fig=fig, rect=236,
+#                     srange=(0, 1.5))
+
+# std0 = [freezinglevel[m].std() for m in freezinglevel]
+# std1 = [snowlimits[m].std() for m in snowlimits]
+# std2 = [snowcovers[m].std() for m in snowcovers]
+# std3 = [FL_sc[m].std() for m in FL_sc]
+# std4 = [SL_sc[m].std() for m in SL_sc]
+# std5 = [SC_sc[m].std() for m in SC_sc]
+
+# corr0 = []
+# corr1 = []
+# corr2 = []
+# corr3 = []
+# corr4 = []
+# corr5 = []
+
+# pbias0 = [100*np.sum(freezinglevel[m]-ref0)/np.sum(ref0)
+#           for m in freezinglevel]
+# pbias1 = [100*np.sum(snowlimits[m]-ref1)/np.sum(ref1) for m in snowlimits]
+# pbias2 = [100*np.sum(snowcovers[m]-ref2)/np.sum(ref2) for m in snowcovers]
+# pbias3 = [100*np.sum(FL_sc[m]-ref3)/np.sum(ref3) for m in FL_sc]
+# pbias4 = [100*np.sum(SL_sc[m]-ref4)/np.sum(ref4) for m in SL_sc]
+# pbias5 = [100*np.sum(SC_sc[m]-ref5)/np.sum(ref5) for m in SC_sc]
+
+
+# cmaps = [plt.cm.plasma(np.linspace(0, 1, freezinglevel.shape[1])),
+#          plt.cm.nipy_spectral(np.linspace(0, 1, snowlimits.shape[1])),
+#          plt.cm.viridis(np.linspace(0, 1, snowcovers.shape[1])),
+#          plt.cm.plasma(np.linspace(0, 1, freezinglevel.shape[1])),
+#          plt.cm.nipy_spectral(np.linspace(0, 1, snowlimits.shape[1])),
+#          plt.cm.viridis(np.linspace(0, 1, snowcovers.shape[1]))]
+
+# for n, var in enumerate([freezinglevel, snowlimits, snowcovers, FL_sc, SL_sc, SC_sc]):
+#     for i in range(var.shape[1]):
+#         index = eval("ref"+str(n)).dropna().index
+#         index = index.intersection(var.iloc[:, i].dropna().index)
+#         x = eval("ref"+str(n)).reindex(index).dropna()
+#         y = var.iloc[:, i].reindex(index).dropna()
+#         eval("corr"+str(n)).append(st.pearsonr(x.values, y.values)[0])
+
+#     colors = cmaps[n]
+#     for i, (std, corr) in enumerate(zip(eval("std"+str(n)), eval("corr"+str(n)))):
+#         td = eval("td"+str(n))
+#         td.add_sample(std, corr,
+#                       marker='$%d$' % (i+1), s=100,
+#                       c=eval("pbias"+str(n))[i], cmap="nipy_spectral_r", vmin=-25, vmax=25,
+#                       label=var.columns[i])
+
+# freezinglevel["STODOMINGO"] = ref0
+# snowlimits["IANIGLA"] = ref1
+# snowcovers["IANIGLA"] = ref2
+# FL_sc["STODOMINGO"] = ref3
+# SL_sc["IANIGLA"] = ref4
+# SC_sc["IANIGLA"] = ref5
+# # =============================================================================
+# # make up
+# # =============================================================================
+# for td in [td0, td1, td2, td3, td4, td5]:
+#     td.add_grid(ls=":")
+#     contours = td.add_contours(colors='0.5', levels=5)
+#     plt.clabel(contours, inline=1, fontsize=10, fmt='%.0f')
+
+# for ax in [ax0, ax1, ax2, ax3, ax4, ax5]:
+#     ax.axis("off")
+
+
+# titles = ["Zero-Degree Level", "Snow limit", "Snow Cover"]
+# for i, td in enumerate([td0, td1, td2]):
+#     lg = td.ax.legend(loc=(-0.05, 1.1), ncol=2, fontsize=8)
+#     lg.set_title(titles[i], prop={"size": 12})
+#     # handles = []
+#     # handles.append(td.samplePoints[0])
+#     # for point in td.samplePoints[1:]:
+#     #     handles.append(point.legend_elements()[0][0])
+#     # for h in handles:
+#     #     h._markeredgecolor = "k"
+#     # lg = td.ax.legend(handles, td.ax.get_legend_handles_labels()[1],
+#     #                   loc=(-0.05, 1.1), ncol=2, fontsize=8)
+#     # lg.set_title(titles[i], prop={"size": 12})
+
+
+# cax = fig.add_axes([ax5.get_position().xmax*1.05,
+#                     ax5.get_position().ymin,
+#                     0.01,
+#                     ax2.get_position().ymax*0.9])
+
+# cb = fig.colorbar(td.samplePoints[1], cax=cax,
+#                   ticks=np.arange(-25, 25+5, 5))
+# cb.set_label(label='Percent Bias (%)', fontsize=12)
+# fig.text(0.08, 0.25, "Mean Anual Cycle", ha="center", va="center",
+#          rotation=90, fontsize=12)
+# fig.text(0.08, 0.75, "Complete time series", ha="center", va="center",
+#          rotation=90, fontsize=12)
+
+
+# plt.savefig("plots/maipomanzano/datasetcomparison/taylor_anualcycle_full.pdf",
+#             dpi=150, bbox_inches="tight")
 
 # %%
 
