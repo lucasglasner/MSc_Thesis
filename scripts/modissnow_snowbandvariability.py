@@ -563,7 +563,8 @@ slimits = []
 for snow in [H20, H50, H80, sl_dgf, sl_ianigla, sl_ianigla2]:
     slimits.append(snow.reindex(times))
 slimits = pd.concat(slimits, axis=1).dropna(how="all")
-names = ["H20", "H50", "H80", "SL_DGF", "SL_IANIGLA_HYPSO", "SL_IANIGLA"]
+names = ["MODIS_H20", "MODIS_H50", "MODIS_H80",
+         "DGF", "IANIGLA_HYPSO", "IANIGLA"]
 slimits.columns = names
 for i in range(len(slimits.columns)-1):
     m = linmodels[i]
@@ -573,3 +574,5 @@ for i in range(len(slimits.columns)-1):
 
 
 # %%
+
+snowlimits = pd.read_csv("datos/snowlimits_maipomanzano.csv", index_col=0)

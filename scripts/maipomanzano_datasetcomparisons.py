@@ -15,17 +15,12 @@ Created on Mon Nov 22 11:14:35 2021
 # %%
 
 
-from taylorDiagram import TaylorDiagram, test1, test2
-import xarray as xr
+from taylorDiagram import TaylorDiagram
 import numpy as np
-from scipy.fftpack import rfft, irfft, fftfreq, fft, ifft
-from scipy.stats import linregress
 import matplotlib.pyplot as plt
 import scipy.stats as st
 import pandas as pd
-import scipy.signal as signal
 import sys
-from matplotlib import rcParams
 
 sys.path.append('scripts/')
 
@@ -63,12 +58,19 @@ def seasonal_decompose(ts, period, nharmonics=3, bandwidth=2):
 
 # =============================================================================
 # Load data
-# =============================================================================
+# =============================================================================}
+
+pr_cr2met = pd.read_csv("datos/cr2met/pr_RioMaipoEnElManzano.csv")
+pr_cr2met.index = pd.to_datetime(pr_cr2met["date"])
+pr_cr2met = pr_cr2met["5710001"]
+
 freezinglevel = pd.read_csv("datos/isotermas0_maipomanzano.csv", index_col=0)
 freezinglevel.index = pd.to_datetime(freezinglevel.index)
 mask = (freezinglevel.index.month == 2) & (freezinglevel.index.day == 29)
 freezinglevel = freezinglevel.iloc[~mask, :]
 freezinglevel = freezinglevel.resample("d").mean()
+mask = pr_cr2met.reindex(freezinglevel.index) > 5
+freezinglevel = freezinglevel.iloc[mask.values, :]
 
 snowlimits = pd.read_csv("datos/snowlimits_maipomanzano.csv", index_col=0)
 snowlimits.index = pd.to_datetime(snowlimits.index)
@@ -161,13 +163,13 @@ pos = [[[3, 4, 1], [3, 4, 2], [3, 4, 3], [3, 4, 4]],
 axes = []
 taylors = []
 
-titles = ["Zero-Degree Level", "Snow limit", "Snow Cover"]
+titles = ["Zero-Degree Level\n(on rainy days)", "Snow limit", "Snow Cover"]
 refs = ["STODOMINGO", "IANIGLA", "IANIGLA"]  # References
 var_names = ["FL", "SL", "SC"]  # Rows
 seasons = ["summer", "autumn", "winter", "spring"]  # Columns
 variables = []  # To store vars
 scales = [[2, 2, 1.5, 1.5],  # X axis scale
-          [2.5, 2.3, 2.3, 2.3],
+          [2.5, 2.3, 3.3, 2.8],
           [3, 2.5, 2, 1.2]]
 
 for i, name in enumerate(var_names):  # Loop over rows
@@ -211,7 +213,7 @@ for i, name in enumerate(var_names):  # Loop over rows
                           marker='$%d$' % (m+1),
                           s=150,
                           c=pbias[m], cmap="nipy_spectral",
-                          vmin=-25, vmax=25,
+                          vmin=-50, vmax=50,
                           label=model)
         # Some make up (i.e RMS contours and grid)
         td.add_grid(ls=":")
@@ -222,17 +224,17 @@ for i, name in enumerate(var_names):  # Loop over rows
         taylors[i].append(td)
         axes[i].append(td.ax)
     # Add legend
-    lg = axes[i][0].legend(loc=(-2.1, 0.2), ncol=2, fontsize=15)
-    lg.set_title(titles[i], prop={"size": 18})
+    lg = axes[i][-1].legend(loc=(1.2, 0.2), ncol=2, fontsize=15)
+    # lg.set_title(titles[i], prop={"size": 18})
 
 # Add a colorbar
-x = axes[0][3].get_position().xmax*1.05
+x = axes[0][3].get_position().xmax+0.39
 y = axes[2][3].get_position().ymin
 w = 0.01
 h = axes[0][3].get_position().ymax-axes[2][3].get_position().ymin
 cax = fig.add_axes([x, y, w, h])
 cb = fig.colorbar(td.samplePoints[1], cax=cax,
-                  ticks=np.arange(-25, 25+5, 5))
+                  ticks=np.arange(-50, 50+5, 5))
 cb.set_label("Percent Bias (%)", fontsize=18)
 del x, y, w, h
 
@@ -240,10 +242,21 @@ del x, y, w, h
 for j in range(len(seasons)):
     bbox = axes[0][j].get_position()
     fig.text(bbox.xmin+.08, bbox.ymax*1.05,
-             seasons[j], ha="center", va="center",
+             seasons[j].capitalize(), ha="center", va="center",
              fontsize=18)
 
-# Adjust figure and save
+# Add titles
+for j in range(len(var_names)):
+    bbox = axes[j][0].get_position()
+    fig.text(bbox.xmin-0.05, bbox.ymin+0.1,
+             titles[j].capitalize(), ha="center", va="center",
+             fontsize=18, rotation=90)
+# Add xlabel
+fig.text(0.5, 0.07, "Standard deviation", ha="center",
+         va="center", fontsize=18)
+
+
+# # Adjust figure and save
 fig.subplots_adjust(wspace=3, hspace=3)
 plt.savefig("plots/maipomanzano/datasetcomparison/taylor_seasons.pdf",
             dpi=150, bbox_inches="tight")
