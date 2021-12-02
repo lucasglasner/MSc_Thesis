@@ -48,50 +48,59 @@ pr_cr2met = pr_cr2met["5710001"]
 try:
     SWE_bands = pd.read_csv(
         "datos/ANDES_SWE_Cortes/snowbands_maipomanzano.csv", index_col=0)
+    SWE_bands.columns = pd.to_datetime(SWE_bands.columns)
 except:
-    yr = 1985
-    SWE = xr.open_dataset(
-        "datos/ANDES_SWE_Cortes/ANDES_SWE_WY"+str(yr)+".nc").SWE
+    for yr in range(1986, 2015+1):
+        # yr = 1985
+        SWE = xr.open_dataset(
+            "datos/ANDES_SWE_Cortes/ANDES_SWE_WY"+str(yr)+".nc").SWE
 
-    # =============================================================================
-    # Binarize Cortes SWE based on threshold
-    # =============================================================================
-    SWE_treshold = 50
-    SWE = SWE > SWE_treshold
+        # =============================================================================
+        # Binarize Cortes SWE based on threshold
+        # =============================================================================
+        SWE_treshold = 50
+        SWE = SWE > SWE_treshold
 
-    # =============================================================================
-    # Create elevation bands and masks
-    # =============================================================================
-    dz = 50
-    elevation_bands = np.arange(dem.min(), dem.max()+dz, dz)
+        # =============================================================================
+        # Create elevation bands and masks
+        # =============================================================================
+        dz = 50
+        elevation_bands = np.arange(dem.min(), dem.max()+dz, dz)
 
-    masks = []
-    for j in range(len(elevation_bands)-1):
-        z0 = elevation_bands[j]
-        z1 = elevation_bands[j+1]
-        mask = (dem.where((dem > z0) & (dem < z1)) > 0).values
-        masks.append(mask)
+        masks = []
+        for j in range(len(elevation_bands)-1):
+            z0 = elevation_bands[j]
+            z1 = elevation_bands[j+1]
+            mask = (dem.where((dem > z0) & (dem < z1)) > 0).values
+            masks.append(mask)
 
-    elevation_bands = elevation_bands[:-1]
-    # =========================================================================
-    # Apply band mask, and compute % of snow cover distribution by band
-    # =========================================================================
+        elevation_bands = elevation_bands[:-1]
+        # =========================================================================
+        # Apply band mask, and compute % of snow cover distribution by band
+        # =========================================================================
 
-    SWE_bands = np.empty((len(elevation_bands), len(SWE.time.values)))
-    SWE_bands = pd.DataFrame(SWE_bands,
-                             index=elevation_bands,
-                             columns=SWE.time.values)
-    for i in trange(len(SWE.time.values)):
-        tile_date = SWE.time.values[i]
-        for j in range(len(masks)):
-            band = masks[j]
-            tile_band = SWE.sel(time=tile_date).where(band)
-            snow_band = tile_band.sum().item()
-            SWE_bands.iloc[j, i] = snow_band/np.count_nonzero(band)
-    SWE_bands.to_csv("datos/ANDES_SWE_Cortes/snowbands_maipomanzano_" +
-                     str(yr)+".csv")
+        SWE_bands = np.empty((len(elevation_bands), len(SWE.time.values)))
+        SWE_bands = pd.DataFrame(SWE_bands,
+                                 index=elevation_bands,
+                                 columns=SWE.time.values)
+        for i in trange(len(SWE.time.values)):
+            tile_date = SWE.time.values[i]
+            for j in range(len(masks)):
+                band = masks[j]
+                tile_band = SWE.sel(time=tile_date).where(band)
+                snow_band = tile_band.sum().item()
+                SWE_bands.iloc[j, i] = snow_band/np.count_nonzero(band)
+        SWE_bands.to_csv("datos/ANDES_SWE_Cortes/snowbands/snowbands_maipomanzano_" +
+                         str(yr)+".csv")
 
+# mask = np.empty(SWE_bands.shape[1],dtype=bool)
+# for i in range(SWE_bands.shape[1]):
+#     if "." in SWE_bands.columns[i]:
+#         mask[i]=False
+#     else:
+#         mask[i]=True
 
+# SWE_bands = SWE_bands.iloc[:,mask]
 # %%
 
 
@@ -141,9 +150,10 @@ dH = H80-H20
 
 
 # %%
+time = pd.date_range("1984-04-01", "2021-10-10", freq="d")
 snowlimits = pd.read_csv("datos/snowlimits_maipomanzano.csv", index_col=0)
 names = ["CORTES_H20", "CORTES_H50", "CORTES_H80"]
-
-snowlimits[names[0]] = H20
-snowlimits[names[1]] = H50
-snowlimits[names[2]] = H80
+snowlimits = snowlimits.reindex(time)
+snowlimits[names[0]] = H20.reindex(time)
+snowlimits[names[1]] = H50.reindex(time)
+snowlimits[names[2]] = H80.reindex(time)

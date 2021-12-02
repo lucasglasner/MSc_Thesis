@@ -68,7 +68,7 @@ freezinglevel = pd.read_csv("datos/isotermas0_maipomanzano.csv", index_col=0)
 freezinglevel.index = pd.to_datetime(freezinglevel.index)
 mask = (freezinglevel.index.month == 2) & (freezinglevel.index.day == 29)
 freezinglevel = freezinglevel.iloc[~mask, :]
-freezinglevel = freezinglevel.resample("d").mean()
+freezinglevel = freezinglevel.resample("d").fillna(method="ffill")
 mask = pr_cr2met.reindex(freezinglevel.index) > 5
 freezinglevel = freezinglevel.iloc[mask.values, :]
 
@@ -76,6 +76,9 @@ snowlimits = pd.read_csv("datos/snowlimits_maipomanzano.csv", index_col=0)
 snowlimits.index = pd.to_datetime(snowlimits.index)
 mask = (snowlimits.index.month == 2) & (snowlimits.index.day == 29)
 snowlimits = snowlimits.iloc[~mask, :]
+snowlimtis = snowlimits.dropna(how="all")
+snowlimits = snowlimits["2000":]
+
 
 snowcovers = pd.read_csv('datos/snowcovers_maipomanzano.csv', index_col=0)
 snowcovers.index = pd.to_datetime(snowcovers.index)

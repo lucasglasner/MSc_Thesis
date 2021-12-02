@@ -18,84 +18,129 @@ from scipy.interpolate import interp1d
 import datetime as dt
 import scipy.stats as st
 import xarray as xr
+from scipy.stats import linregress
+from tqdm import trange
 
-
-#%%
+# %%
 # =============================================================================
 # load data
 # =============================================================================
 
-isotermas0 = pd.read_csv("datos/isotermas0_maipomanzano.csv",index_col=0).dropna(how="all")
+isotermas0 = pd.read_csv(
+    "datos/isotermas0_maipomanzano.csv", index_col=0).dropna(how="all")
 isotermas0.index = pd.to_datetime(isotermas0.index)
 isotermas0 = isotermas0.resample("d").fillna(method="ffill")
 
-snowlimits = pd.read_csv("datos/snowlimits_maipomanzano.csv",index_col=0).dropna(how="all")
+snowlimits = pd.read_csv(
+    "datos/snowlimits_maipomanzano.csv", index_col=0).dropna(how="all")
 snowlimits.index = pd.to_datetime(snowlimits.index)
 
 
-pr_cr2met  = pd.read_csv("datos/cr2met/pr_RioMaipoEnElManzano.csv",index_col=0)
+pr_cr2met = pd.read_csv("datos/cr2met/pr_RioMaipoEnElManzano.csv", index_col=0)
 pr_cr2met.index = pd.to_datetime(pr_cr2met["date"])
-pr_cr2met.drop("date",axis=1,inplace=True)
+pr_cr2met.drop("date", axis=1, inplace=True)
 
 
-qinst_mm   = pd.read_csv("datos/estaciones/qinst_RioMaipoEnElManzano.csv",index_col=0).qinst_mm
+qinst_mm = pd.read_csv(
+    "datos/estaciones/qinst_RioMaipoEnElManzano.csv", index_col=0).qinst_mm
 qinst_mm.index = pd.to_datetime(qinst_mm.index)
-#%%
 
-SL_cond = snowlimits.reindex(pr_cr2met.index)[pr_cr2met.values>5].dropna()
-FL_cond = isotermas0.reindex(pr_cr2met.index)[pr_cr2met.values>5].reindex(SL_cond.index)-300
+# %% Rasters
+# =============================================================================
+# ERA5LAND
+# =============================================================================
 
-ROS1 = {sl:{fl:None for fl in FL_cond.columns} for sl in SL_cond.columns}
 
+# %%
+# =============================================================================
+# Fill MODIS data with linear regression against ianigla
+# =============================================================================
+times = pd.date_range("2000-01-01", "2021-12-31", freq="d")
+for i in trange(3):
+    y = snowlimits.iloc[:, i].dropna()
+    x = snowlimits["IANIGLA"].dropna().reindex(y.index)
+    m = linregress(x, y)
+    for j in range(len(snowlimits)):
+        if np.isnan(snowlimits.iloc[j, i]):
+            snowlimits.iloc[j, i] = m.slope * \
+                snowlimits["IANIGLA"].values[j]+m.intercept
+
+
+# %%
+
+# pairs = [("STODOMINGO", "MODIS_H50"), ("CR2MET_LR_MM", "CORTES_H50"),
+#          ("CR2MET_H50_MM", "CORTES_H50"), ("STODOMINGO", "CORTES_H50")]
+# rainy_days = pr_cr2met[pr_cr2met > 5].dropna().index
+# ROS_days = pd.DataFrame(np.empty((rainy_days.shape[0], len(pairs))),
+#                         index=rainy_days, columns=pairs)
+# for p in pairs:
+#     H0_name, SL_name = p[0], p[1]
+#     FL = isotermas0[H0_name].copy()-300
+#     SL = snowlimits[SL_name].copy()
+#     FL, SL = FL.reindex(rainy_days), SL.reindex(rainy_days)
+#     ROS_days[p] = ((FL-SL) > 0)
+
+# %%
+
+
+SL_cond = snowlimits.reindex(pr_cr2met.index)[
+    pr_cr2met.values > 5].dropna(how="all")
+FL_cond = isotermas0.reindex(pr_cr2met.index)[
+    pr_cr2met.values > 5].reindex(SL_cond.index)-300
+
+ROS1 = {sl: {fl: None for fl in FL_cond.columns} for sl in SL_cond.columns}
 for SL in SL_cond.columns:
     for FL in FL_cond.columns:
-        ROS1[SL][FL]=SL_cond[SL]-FL_cond[FL]
+        ROS1[SL][FL] = SL_cond[SL]-FL_cond[FL]
         ROS1[SL][FL].name = SL+" - "+FL
+ROS1 = pd.concat([pd.concat(list(ROS1.values())[i].values(), axis=1)
+                  for i in range(len(SL_cond.columns))], axis=1)
 
-ROS11 = pd.concat([pd.concat(list(ROS1.values())[i].values(),axis=1) for i in range(6)],axis=1)
+ROS2 = ROS1 < 0
 
-# ROS  = ROS1>0
-ROS2 = ROS11<0
+meanROS = ROS2.groupby([ROS2.index.year, ROS2.index.month]).sum()
+meanROS = meanROS.unstack().mean(axis=0).unstack().T
+pairs = meanROS.max().sort_values().index
+meanROS = meanROS[pairs]
 
-#%%
 
-plt.bar(range(1,13),ROS2.groupby([ROS2.index.year,ROS2.index.month]).sum().unstack().mean(axis=0).unstack().T.mean(axis=1).values,
-        yerr=ROS2.groupby([ROS2.index.year,ROS2.index.month]).sum().unstack().mean(axis=0).unstack().T.std(axis=1).values,
-        capsize=3)
+# %%
 
-#%%
-minims = ROS11.min()
-dates  = []
-for i in range(minims.shape[0]):
-    v=np.where(ROS11.iloc[:,i]==minims.values[i])
-    dates.append(ROS11.index.values[v[0][0]])
+pairs = ["MODIS_H50 - STODOMINGO", "CORTES_H50 - CR2MET_H50_
+         "CORTES_H20 - CR2MET_H80_MM"]
 
-dates=pd.to_datetime(dates)
+# %%
+# minims = ROS11.min()
+# dates  = []
+# for i in range(minims.shape[0]):
+#     v=np.where(ROS11.iloc[:,i]==minims.values[i])
+#     dates.append(ROS11.index.values[v[0][0]])
 
-#%%
-fig,ax=plt.subplots(2,1)
-ts=[]
-p=[]
-for date in dates[:1]:
-    d1 = date+dt.timedelta(days=5)
-    d2 = date-dt.timedelta(days=5)
-    t  = qinst_mm[d2.strftime("%Y-%m-%d"):d1.strftime("%Y-%m-%d")]
-    pr = pr_cr2met[d2.strftime("%Y-%m-%d"):d1.strftime("%Y-%m-%d")]
-    ind = t.index-date
-    ts.append(pd.Series(t.values,index=ind))
-    p.append(pd.Series(pr.values.squeeze(),index=pr.index-date))
-for t in ts:
-    ax[0].plot(t)
-for pr in p:
-    ax[1].bar(np.arange(len(pr)),pr,alpha=0.5)
-#%%
+# dates=pd.to_datetime(dates)
+
+# #%%
+# fig,ax=plt.subplots(2,1)
+# ts=[]
+# p=[]
+# for date in dates[:1]:
+#     d1 = date+dt.timedelta(days=5)
+#     d2 = date-dt.timedelta(days=5)
+#     t  = qinst_mm[d2.strftime("%Y-%m-%d"):d1.strftime("%Y-%m-%d")]
+#     pr = pr_cr2met[d2.strftime("%Y-%m-%d"):d1.strftime("%Y-%m-%d")]
+#     ind = t.index-date
+#     ts.append(pd.Series(t.values,index=ind))
+#     p.append(pd.Series(pr.values.squeeze(),index=pr.index-date))
+# for t in ts:
+#     ax[0].plot(t)
+# for pr in p:
+#     ax[1].bar(np.arange(len(pr)),pr,alpha=0.5)
+# %%
 # =============================================================================
 # load era5land data
 # =============================================================================
 # pr_era5land  = xr.open_dataset("datos/era5land/RioMaipoEnElManzano/total_precipitation.nc",chunks="auto").tp*1e3
 # t2m_era5land = xr.open_dataset("datos/era5land/RioMaipoEnElManzano/2m_temperature.nc",chunks="auto").t2m-273.15
 # swe_era5land = xr.open_dataset("datos/era5land/RioMaipoEnElManzano/snow_depth_water_equivalent.nc",chunks="auto").sd*1e3
-
 
 
 # cond1 = pr_era5land>1
@@ -109,11 +154,11 @@ for pr in p:
 #     pr_era5land = pd.read_csv("datos/era5land/RioMaipoEnElManzano/total_precipitation_basinmean.csv",index_col=0)
 #     pr_era5land.index = pd.to_datetime(pr_era5land.index)
 # except:
-#     
+#
 #     pr_era5land = pr_era5land.mean(dim="lat").mean(dim="lon").to_series()*1e3
 #     pr_era5land.to_csv("datos/era5land/RioMaipoEnElManzano/total_precipitation_basinmean.csv")
 
-#%%
+# %%
 
 # #%%
 # # =============================================================================
@@ -192,7 +237,6 @@ for pr in p:
 #            color="royalblue" )
 # ax[2].hist(data["pr"], bins="auto" , density=True, alpha=0.7, color="skyblue")
 # ax[2].set_xlabel("pr_quintanormal (mm)")
-
 
 
 # ax[3].hist(q_maipomanzano, bins="auto", density=True, alpha=0.7,
