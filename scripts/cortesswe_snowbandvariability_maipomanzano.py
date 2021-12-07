@@ -47,7 +47,7 @@ pr_cr2met = pr_cr2met["5710001"]
 
 try:
     SWE_bands = pd.read_csv(
-        "datos/ANDES_SWE_Cortes/snowbands_maipomanzano.csv", index_col=0)
+        "datos/ANDES_SWE_Cortes/snowbands_maipomadsnzano.csv", index_col=0)
     SWE_bands.columns = pd.to_datetime(SWE_bands.columns)
 except:
     for yr in range(1986, 2015+1):
@@ -58,7 +58,7 @@ except:
         # =============================================================================
         # Binarize Cortes SWE based on threshold
         # =============================================================================
-        SWE_treshold = 50
+        SWE_treshold = 10
         SWE = SWE > SWE_treshold
 
         # =============================================================================
@@ -90,7 +90,7 @@ except:
                 tile_band = SWE.sel(time=tile_date).where(band)
                 snow_band = tile_band.sum().item()
                 SWE_bands.iloc[j, i] = snow_band/np.count_nonzero(band)
-        SWE_bands.to_csv("datos/ANDES_SWE_Cortes/snowbands/snowbands_maipomanzano_" +
+        SWE_bands.to_csv("datos/ANDES_SWE_Cortes/snowbands_maipomanzano_" +
                          str(yr)+".csv")
 
 # mask = np.empty(SWE_bands.shape[1],dtype=bool)

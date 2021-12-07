@@ -20,6 +20,9 @@ import scipy.stats as st
 import xarray as xr
 from scipy.stats import linregress
 from tqdm import trange
+from glob import glob
+import gc
+
 
 # %%
 # =============================================================================
@@ -45,11 +48,56 @@ qinst_mm = pd.read_csv(
     "datos/estaciones/qinst_RioMaipoEnElManzano.csv", index_col=0).qinst_mm
 qinst_mm.index = pd.to_datetime(qinst_mm.index)
 
-# %% Rasters
+# %% Rasters and ROS
 # =============================================================================
 # ERA5LAND
 # =============================================================================
 
+paths = sorted(glob("datos/era5land/RioMaipoEnElManzano/*.nc"))
+paths = paths[1:4:2]
+ERA5LAND = xr.open_mfdataset(paths)
+
+ROS_ERA5LAND = np.where((ERA5LAND.tp > 1/1e3) & (ERA5LAND.sd > 10/1e3),
+                        True, False)
+ROS = np.empty(ROS_ERA5LAND.shape[0])
+for i in range(ROS_ERA5LAND.shape[0]):
+    ROS[i] = ROS_ERA5LAND[i, :, :].sum()
+
+ROS_ERA5LAND = pd.Series(ROS, index=ERA5LAND.time.values)
+ROS_ERA5LAND = ROS_ERA5LAND/49
+del ERA5LAND, paths
+
+# %%
+# =============================================================================
+# CORTES+CR2MET
+# =============================================================================
+
+paths = "datos/ANDES_SWE_Cortes/regrid_cr2met/RioMaipoEnElManzano/ANDES*"
+paths = glob(paths)
+SWE = xr.open_mfdataset(paths).SWE
+# dates = SWE.time.to_series().index
+# dates = np.where(~((dates.month==2) & (dates.day==29)))[0]
+# SWE   = SWE.isel(time=dates)
+
+paths = "datos/cr2met/CR2MET_t2m_1979-2020_RioMaipoEnElManzano.nc"
+T2M = xr.open_dataset(paths).t2m
+T2M = T2M.reindex({"time": SWE.time.to_series().index})
+
+paths = "datos/cr2met/CR2MET_pr_1979-2020_RioMaipoEnElManzano.nc"
+PR = xr.open_dataset(paths).pr
+PR = PR.reindex({"time": SWE.time.to_series().index})
+
+ROS_CORTESCR2MET = np.where((SWE > 10) &
+                            (T2M < 0) &
+                            (PR > 3),
+                            True, False)
+ROS = np.empty(ROS_CORTESCR2MET.shape[0])
+for i in range(ROS_CORTESCR2MET.shape[0]):
+    ROS[i] = ROS_CORTESCR2MET[i, :, :].sum()
+
+ROS_CORTESCR2MET = pd.Series(ROS, index=SWE.time.values)
+ROS_CORTESCR2MET = ROS_CORTESCR2MET/191
+del SWE, T2M, PR
 
 # %%
 # =============================================================================
@@ -67,26 +115,14 @@ for i in trange(3):
 
 
 # %%
-
-# pairs = [("STODOMINGO", "MODIS_H50"), ("CR2MET_LR_MM", "CORTES_H50"),
-#          ("CR2MET_H50_MM", "CORTES_H50"), ("STODOMINGO", "CORTES_H50")]
-# rainy_days = pr_cr2met[pr_cr2met > 5].dropna().index
-# ROS_days = pd.DataFrame(np.empty((rainy_days.shape[0], len(pairs))),
-#                         index=rainy_days, columns=pairs)
-# for p in pairs:
-#     H0_name, SL_name = p[0], p[1]
-#     FL = isotermas0[H0_name].copy()-300
-#     SL = snowlimits[SL_name].copy()
-#     FL, SL = FL.reindex(rainy_days), SL.reindex(rainy_days)
-#     ROS_days[p] = ((FL-SL) > 0)
-
-# %%
-
+# =============================================================================
+# COMPUTE ROS BASED ON SNOWLIMIT AND FREEZING LEVEL METHOD.
+# =============================================================================
 
 SL_cond = snowlimits.reindex(pr_cr2met.index)[
-    pr_cr2met.values > 5].dropna(how="all")
+    pr_cr2met.values > 3].dropna(how="all")
 FL_cond = isotermas0.reindex(pr_cr2met.index)[
-    pr_cr2met.values > 5].reindex(SL_cond.index)-300
+    pr_cr2met.values > 3].reindex(SL_cond.index)-300
 
 ROS1 = {sl: {fl: None for fl in FL_cond.columns} for sl in SL_cond.columns}
 for SL in SL_cond.columns:
@@ -98,17 +134,25 @@ ROS1 = pd.concat([pd.concat(list(ROS1.values())[i].values(), axis=1)
 
 ROS2 = ROS1 < 0
 
+ROS2["ERA5LAND 25%"] = ROS_ERA5LAND.reindex(ROS2.index) > 0.25
+ROS2["CORTES - CR2MET 25%"] = ROS_CORTESCR2MET.reindex(ROS2.index) > 0.25
+
 meanROS = ROS2.groupby([ROS2.index.year, ROS2.index.month]).sum()
 meanROS = meanROS.unstack().mean(axis=0).unstack().T
 pairs = meanROS.max().sort_values().index
 meanROS = meanROS[pairs]
 
-
+pairs = ["MODIS_H20 - STODOMINGO",
+         "CORTES - CR2MET 25%",
+         "CORTES_H20 - CR2MET_H80_MM",
+         "CORTES_H50 - CR2MET_H50_MM",
+         "ERA5LAND 25%"]
+ROS2 = ROS2[pairs]
+meanROS = meanROS[pairs]
+del pairs, ROS1, SL_cond, FL_cond
+meanROS.plot()
 # %%
-
-pairs = ["MODIS_H50 - STODOMINGO", "CORTES_H50 - CR2MET_H50_
-         "CORTES_H20 - CR2MET_H80_MM"]
-
+gc.collect()
 # %%
 # minims = ROS11.min()
 # dates  = []
