@@ -83,7 +83,7 @@ if how == "whole":
         ROS[i] = ROS_ERA5LAND[i, :, :].sum()
 
     ROS_ERA5LAND = pd.Series(ROS, index=ERA5LAND.time.values)
-    ROS_ERA5LAND = ROS_ERA5LAND/49 > 0.4
+    ROS_ERA5LAND = ROS_ERA5LAND/49
     del ERA5LAND, paths
 elif how == "centroid":
     paths = sorted(glob("datos/era5land/RioMaipoEnElManzano/*.nc"))
@@ -125,7 +125,7 @@ if how == "whole":
         ROS[i] = ROS_CORTESCR2MET[i, :, :].sum()
 
     ROS_CORTESCR2MET = pd.Series(ROS, index=SWE.time.values)
-    ROS_CORTESCR2MET = ROS_CORTESCR2MET/191 > 0.4
+    ROS_CORTESCR2MET = ROS_CORTESCR2MET/191
     del SWE, T2M, PR, paths
 elif how == "centroid":
     paths = "datos/ANDES_SWE_Cortes/regrid_cr2met/RioMaipoEnElManzano/ANDES*"
@@ -175,8 +175,8 @@ ROS1 = pd.concat([pd.concat(list(ROS1.values())[i].values(), axis=1)
 
 ROS = ROS1 < 0
 
-ROS["ERA5LAND"] = ROS_ERA5LAND.reindex(times)
-ROS["CORTES - CR2MET"] = ROS_CORTESCR2MET.reindex(times)
+ROS["ERA5LAND"] = ROS_ERA5LAND.reindex(times) > 0.2
+ROS["CORTES - CR2MET"] = ROS_CORTESCR2MET.reindex(times) > 0.2
 
 # meanROS = ROS.groupby([ROS.index.year, ROS.index.month]).sum()
 # meanROS = meanROS.unstack().mean(axis=0).unstack().T
@@ -215,6 +215,11 @@ meanROS.plot(ax=ax[0], alpha=0.8)
 #     var = seasonal_decompose(var,365,6,1)[0]
 #     ax[0].plot(np.linspace(1,12,len(var)),var)
 ax[0].legend(frameon=False, loc=(0, 1))
+ax[0].set_ylim(0, 6)
+ax[0].set_xticks(np.arange(1, 13, 1))
+ax[0].set_xticklabels(["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL",
+                       "AGO", "SEP", "OCT", "NOV", "DIC"])
+ax[0].grid(ls=":", axis="x")
 ax[0].set_ylabel("Monthly mean ROS Events)")
 ax[1].set_ylabel("N° ROS Events")
 plt.savefig("plots/maipomanzano/ROS_maipo.pdf", dpi=150, bbox_inches="tight")
