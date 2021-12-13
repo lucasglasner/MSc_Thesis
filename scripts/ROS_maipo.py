@@ -22,12 +22,15 @@ from scipy.stats import linregress
 from tqdm import trange
 from glob import glob
 import gc
+import geopandas as gpd
+import scipy.stats as st
 
 
 # %%
 # =============================================================================
 # load data
 # =============================================================================
+
 
 isotermas0 = pd.read_csv(
     "datos/isotermas0_maipomanzano.csv", index_col=0).dropna(how="all")
@@ -48,57 +51,7 @@ qinst_mm = pd.read_csv(
     "datos/estaciones/qinst_RioMaipoEnElManzano.csv", index_col=0).qinst_mm
 qinst_mm.index = pd.to_datetime(qinst_mm.index)
 
-# %% Rasters and ROS
-# =============================================================================
-# ERA5LAND
-# =============================================================================
-
-paths = sorted(glob("datos/era5land/RioMaipoEnElManzano/*.nc"))
-paths = paths[1:4:2]
-ERA5LAND = xr.open_mfdataset(paths)
-
-ROS_ERA5LAND = np.where((ERA5LAND.tp > 1/1e3) & (ERA5LAND.sd > 10/1e3),
-                        True, False)
-ROS = np.empty(ROS_ERA5LAND.shape[0])
-for i in range(ROS_ERA5LAND.shape[0]):
-    ROS[i] = ROS_ERA5LAND[i, :, :].sum()
-
-ROS_ERA5LAND = pd.Series(ROS, index=ERA5LAND.time.values)
-ROS_ERA5LAND = ROS_ERA5LAND/49
-del ERA5LAND, paths
-
-# %%
-# =============================================================================
-# CORTES+CR2MET
-# =============================================================================
-
-paths = "datos/ANDES_SWE_Cortes/regrid_cr2met/RioMaipoEnElManzano/ANDES*"
-paths = glob(paths)
-SWE = xr.open_mfdataset(paths).SWE
-# dates = SWE.time.to_series().index
-# dates = np.where(~((dates.month==2) & (dates.day==29)))[0]
-# SWE   = SWE.isel(time=dates)
-
-paths = "datos/cr2met/CR2MET_t2m_1979-2020_RioMaipoEnElManzano.nc"
-T2M = xr.open_dataset(paths).t2m
-T2M = T2M.reindex({"time": SWE.time.to_series().index})
-
-paths = "datos/cr2met/CR2MET_pr_1979-2020_RioMaipoEnElManzano.nc"
-PR = xr.open_dataset(paths).pr
-PR = PR.reindex({"time": SWE.time.to_series().index})
-
-ROS_CORTESCR2MET = np.where((SWE > 10) &
-                            (T2M < 0) &
-                            (PR > 3),
-                            True, False)
-ROS = np.empty(ROS_CORTESCR2MET.shape[0])
-for i in range(ROS_CORTESCR2MET.shape[0]):
-    ROS[i] = ROS_CORTESCR2MET[i, :, :].sum()
-
-ROS_CORTESCR2MET = pd.Series(ROS, index=SWE.time.values)
-ROS_CORTESCR2MET = ROS_CORTESCR2MET/191
-del SWE, T2M, PR
-
+mm_centroid = (-70.08756, -33.70859)
 # %%
 # =============================================================================
 # Fill MODIS data with linear regression against ianigla
@@ -112,17 +65,105 @@ for i in trange(3):
         if np.isnan(snowlimits.iloc[j, i]):
             snowlimits.iloc[j, i] = m.slope * \
                 snowlimits["IANIGLA"].values[j]+m.intercept
+gc.collect()
+# %% Rasters and ROS
+# =============================================================================
+# ERA5LAND
+# =============================================================================
+how = "whole"
+if how == "whole":
+    paths = sorted(glob("datos/era5land/RioMaipoEnElManzano/*.nc"))
+    paths = paths[1:4:2]
+    ERA5LAND = xr.open_mfdataset(paths)
 
+    ROS_ERA5LAND = np.where((ERA5LAND.tp > 1/1e3) & (ERA5LAND.sd > 10/1e3),
+                            True, False)
+    ROS = np.empty(ROS_ERA5LAND.shape[0])
+    for i in range(ROS_ERA5LAND.shape[0]):
+        ROS[i] = ROS_ERA5LAND[i, :, :].sum()
 
+    ROS_ERA5LAND = pd.Series(ROS, index=ERA5LAND.time.values)
+    ROS_ERA5LAND = ROS_ERA5LAND/49 > 0.4
+    del ERA5LAND, paths
+elif how == "centroid":
+    paths = sorted(glob("datos/era5land/RioMaipoEnElManzano/*.nc"))
+    paths = paths[1:4:2]
+    ERA5LAND = xr.open_mfdataset(paths)
+    ERA5LAND = ERA5LAND.sel(lat=mm_centroid[1], lon=mm_centroid[0],
+                            method="nearest")
+    ERA5LAND = ERA5LAND.to_dataframe().drop(["lon", "lat"], axis=1).dropna()
+    ERA5LAND = ERA5LAND.resample("d").sum()
+    ROS_ERA5LAND = np.where((ERA5LAND.tp > 1/1e3) & (ERA5LAND.sd > 10/1e3),
+                            True, False)
+    ROS_ERA5LAND = pd.Series(ROS_ERA5LAND, index=ERA5LAND.index)
+    del ERA5LAND, paths
+else:
+    raise Exception("'how' method not valid")
+gc.collect()
+# %%
+# =============================================================================
+# CORTES+CR2MET
+# =============================================================================
+how = "whole"
+if how == "whole":
+    paths = "datos/ANDES_SWE_Cortes/regrid_cr2met/RioMaipoEnElManzano/ANDES*"
+    paths = glob(paths)
+    SWE = xr.open_mfdataset(paths).SWE
+
+    paths = "datos/cr2met/CR2MET_t2m_1979-2020_RioMaipoEnElManzano.nc"
+    T2M = xr.open_dataset(paths).t2m
+    T2M = T2M.reindex({"time": SWE.time.to_series().index})
+
+    paths = "datos/cr2met/CR2MET_pr_1979-2020_RioMaipoEnElManzano.nc"
+    PR = xr.open_dataset(paths).pr
+    PR = PR.reindex({"time": SWE.time.to_series().index})
+
+    ROS_CORTESCR2MET = np.where((SWE > 10) & (T2M > 0) & (PR > 3),
+                                True, False)
+    ROS = np.empty(ROS_CORTESCR2MET.shape[0])
+    for i in range(ROS_CORTESCR2MET.shape[0]):
+        ROS[i] = ROS_CORTESCR2MET[i, :, :].sum()
+
+    ROS_CORTESCR2MET = pd.Series(ROS, index=SWE.time.values)
+    ROS_CORTESCR2MET = ROS_CORTESCR2MET/191 > 0.4
+    del SWE, T2M, PR, paths
+elif how == "centroid":
+    paths = "datos/ANDES_SWE_Cortes/regrid_cr2met/RioMaipoEnElManzano/ANDES*"
+    paths = glob(paths)
+    SWE = xr.open_mfdataset(paths).SWE
+    SWE = SWE.sel(lat=mm_centroid[1], lon=mm_centroid[0],
+                  method="nearest").to_series()
+
+    paths = "datos/cr2met/CR2MET_t2m_1979-2020_RioMaipoEnElManzano.nc"
+    T2M = xr.open_dataset(paths).t2m
+    T2M = T2M.sel(lat=mm_centroid[1], lon=mm_centroid[0],
+                  method="nearest")
+    T2M = T2M.reindex({"time": SWE.index}).to_series()
+
+    paths = "datos/cr2met/CR2MET_pr_1979-2020_RioMaipoEnElManzano.nc"
+    PR = xr.open_dataset(paths).pr
+    PR = PR.sel(lat=mm_centroid[1], lon=mm_centroid[0],
+                method="nearest")
+    PR = PR.reindex({"time": SWE.index}).to_series()
+
+    ROS_CORTESCR2MET = np.where((SWE > 10) & (T2M > 0) & (PR > 3),
+                                True, False)
+    ROS_CORTESCR2MET = pd.Series(ROS_CORTESCR2MET,
+                                 index=SWE.index).dropna()
+    del T2M, SWE, PR, paths
+else:
+    raise Exception("'how' method not valid")
+
+gc.collect()
 # %%
 # =============================================================================
 # COMPUTE ROS BASED ON SNOWLIMIT AND FREEZING LEVEL METHOD.
 # =============================================================================
-
+times = pd.date_range("1979-01-01", "2021-01-01", freq="d")
 SL_cond = snowlimits.reindex(pr_cr2met.index)[
-    pr_cr2met.values > 3].dropna(how="all")
+    pr_cr2met.values > 3].dropna(how="all").reindex(times)
 FL_cond = isotermas0.reindex(pr_cr2met.index)[
-    pr_cr2met.values > 3].reindex(SL_cond.index)-300
+    pr_cr2met.values > 3].reindex(times)-300
 
 ROS1 = {sl: {fl: None for fl in FL_cond.columns} for sl in SL_cond.columns}
 for SL in SL_cond.columns:
@@ -132,27 +173,52 @@ for SL in SL_cond.columns:
 ROS1 = pd.concat([pd.concat(list(ROS1.values())[i].values(), axis=1)
                   for i in range(len(SL_cond.columns))], axis=1)
 
-ROS2 = ROS1 < 0
+ROS = ROS1 < 0
 
-ROS2["ERA5LAND 25%"] = ROS_ERA5LAND.reindex(ROS2.index) > 0.25
-ROS2["CORTES - CR2MET 25%"] = ROS_CORTESCR2MET.reindex(ROS2.index) > 0.25
+ROS["ERA5LAND"] = ROS_ERA5LAND.reindex(times)
+ROS["CORTES - CR2MET"] = ROS_CORTESCR2MET.reindex(times)
 
-meanROS = ROS2.groupby([ROS2.index.year, ROS2.index.month]).sum()
-meanROS = meanROS.unstack().mean(axis=0).unstack().T
-pairs = meanROS.max().sort_values().index
-meanROS = meanROS[pairs]
+# meanROS = ROS.groupby([ROS.index.year, ROS.index.month]).sum()
+# meanROS = meanROS.unstack().mean(axis=0).unstack().T
+# pairs = meanROS.max().sort_values().index
+# meanROS = meanROS[pairs]
 
 pairs = ["MODIS_H20 - STODOMINGO",
-         "CORTES - CR2MET 25%",
-         "CORTES_H20 - CR2MET_H80_MM",
+         "CORTES - CR2MET",
          "CORTES_H50 - CR2MET_H50_MM",
-         "ERA5LAND 25%"]
-ROS2 = ROS2[pairs]
-meanROS = meanROS[pairs]
-del pairs, ROS1, SL_cond, FL_cond
-meanROS.plot()
-# %%
+         "ERA5LAND"]
+ROS = ROS[pairs].dropna(how="all")
+
+for pair in pairs:
+    ROS[pair] = ROS[pair].map(lambda x: False if np.isnan(x) else bool(x))
+
+meanROS = ROS.groupby([ROS.index.year, ROS.index.month]).sum()
+meanROS = meanROS.unstack().mean(axis=0).unstack().T
 gc.collect()
+# %%
+
+fig, ax = plt.subplots(1, 2, figsize=(12, 3))
+ax = ax.ravel()
+year = ROS.resample("y").sum().applymap(lambda x: np.nan if x == 0 else x)
+
+for pair in pairs:
+    var = year[pair].dropna()
+    m = st.linregress(range(len(var)), var)
+    trend = "{:.2f}".format(m.slope)
+    pvalue = "{:.2f}".format(m.pvalue)
+    ax[1].plot(var, label="Trend: "+trend+" Events/year ; pvalue: "+pvalue,
+               alpha=0.8)
+ax[1].legend(loc=(0, 1), frameon=False)
+
+meanROS.plot(ax=ax[0], alpha=0.8)
+#     var = ROS.groupby(ROS.index.dayofyear).sum()[pair]
+#     var = seasonal_decompose(var,365,6,1)[0]
+#     ax[0].plot(np.linspace(1,12,len(var)),var)
+ax[0].legend(frameon=False, loc=(0, 1))
+ax[0].set_ylabel("Monthly mean ROS Events)")
+ax[1].set_ylabel("N° ROS Events")
+plt.savefig("plots/maipomanzano/ROS_maipo.pdf", dpi=150, bbox_inches="tight")
+
 # %%
 # minims = ROS11.min()
 # dates  = []
