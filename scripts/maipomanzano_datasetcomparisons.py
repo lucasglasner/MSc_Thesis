@@ -175,7 +175,7 @@ scales = [[2, 2, 1.5, 1.5],  # X axis scale
           [2.5, 2.3, 3.3, 2.8],
           [3, 2.5, 2, 1.2]]
 
-for i, name in enumerate(var_names):  # Loop over rows
+for i, name in enumerate(var_names):  # Loop over rows+
     taylors.append([])
     axes.append([])
     variables.append([])

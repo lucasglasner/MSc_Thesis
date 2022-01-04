@@ -76,7 +76,7 @@ if how == "whole":
     paths = paths[1:4:2]
     ERA5LAND = xr.open_mfdataset(paths)
 
-    ROS_ERA5LAND = np.where((ERA5LAND.tp > 1/1e3) & (ERA5LAND.sd > 10/1e3),
+    ROS_ERA5LAND = np.where((ERA5LAND.tp > 3/1e3) & (ERA5LAND.sd > 10/1e3),
                             True, False)
     ROS = np.empty(ROS_ERA5LAND.shape[0])
     for i in range(ROS_ERA5LAND.shape[0]):
@@ -93,7 +93,7 @@ elif how == "centroid":
                             method="nearest")
     ERA5LAND = ERA5LAND.to_dataframe().drop(["lon", "lat"], axis=1).dropna()
     ERA5LAND = ERA5LAND.resample("d").sum()
-    ROS_ERA5LAND = np.where((ERA5LAND.tp > 1/1e3) & (ERA5LAND.sd > 10/1e3),
+    ROS_ERA5LAND = np.where((ERA5LAND.tp > 3*1e3) & (ERA5LAND.sd > 10*1e3),
                             True, False)
     ROS_ERA5LAND = pd.Series(ROS_ERA5LAND, index=ERA5LAND.index)
     del ERA5LAND, paths
@@ -110,11 +110,11 @@ if how == "whole":
     paths = glob(paths)
     SWE = xr.open_mfdataset(paths).SWE
 
-    paths = "datos/cr2met/CR2MET_t2m_1979-2020_RioMaipoEnElManzano.nc"
+    paths = "datos/cr2met/RioMaipoEnElManzano_CR2MET_t2m_1979-2020.nc"
     T2M = xr.open_dataset(paths).t2m
     T2M = T2M.reindex({"time": SWE.time.to_series().index})
 
-    paths = "datos/cr2met/CR2MET_pr_1979-2020_RioMaipoEnElManzano.nc"
+    paths = "datos/cr2met/RioMaipoEnElManzano_CR2MET_pr_1979-2020.nc"
     PR = xr.open_dataset(paths).pr
     PR = PR.reindex({"time": SWE.time.to_series().index})
 
@@ -222,7 +222,7 @@ ax[0].set_xticklabels(["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL",
 ax[0].grid(ls=":", axis="x")
 ax[0].set_ylabel("Monthly mean ROS Events)")
 ax[1].set_ylabel("N° ROS Events")
-plt.savefig("plots/maipomanzano/ROS_maipo.pdf", dpi=150, bbox_inches="tight")
+# plt.savefig("plots/maipomanzano/ROS_maipo.pdf", dpi=150, bbox_inches="tight")
 
 # %%
 # minims = ROS11.min()
