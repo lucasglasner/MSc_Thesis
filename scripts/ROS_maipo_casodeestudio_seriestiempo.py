@@ -215,6 +215,12 @@ def local_minimum_filter(ts, size):
 
 
 # %%
+date = "2013-08-11"
+# date = "2002-06-01"
+interval = datetime.datetime.strptime(date, '%Y-%m-%d')
+interval = slice(interval-datetime.timedelta(days=8),
+                 interval+datetime.timedelta(days=5))
+
 # =============================================================================
 # basin polygon and hypsometry
 # =============================================================================
@@ -248,24 +254,23 @@ for i in range(3):
 # ISOTERMAS 0
 # =============================================================================
 
-H0_mm = pd.read_csv('datos/isotermas0_maipomanzano.csv',
+H0_mm = pd.read_csv('datos/stodomingo/isoterma0.csv',
                     index_col=0).squeeze()
-H0_mm.index = pd.to_datetime(H0_mm.index)+datetime.timedelta(hours=12)
+H0_mm.index = pd.to_datetime(H0_mm.index)+datetime.timedelta(hours=4)
 H0_mm = H0_mm.dropna(how='all')
 # =============================================================================
-# pp quinta normal y Q maipo manzano
+# Q y pr maipo manzano
 # =============================================================================
-pr_qn = pd.read_csv(
-    "datos/estaciones/pr_quintanormal.csv").applymap(lambda x: str(x))
-pr_qn["fecha"] = pr_qn["agno"]+"-"+pr_qn[" mes"]+"-"+pr_qn[" dia"]
-pr_qn.index = pd.to_datetime(pr_qn["fecha"])+datetime.timedelta(hours=12)
-pr_qn.drop(["fecha", "agno", " mes", " dia"], inplace=True, axis=1)
-pr_qn = pd.to_numeric(pr_qn[" valor"])
-pr_qn.name = "pr"
 
 qinst_mm = pd.read_csv("datos/estaciones/qinst_" +
                        cuenca+".csv", index_col=0).qinst_mm
-qinst_mm.index = pd.to_datetime(qinst_mm.index)+datetime.timedelta(hours=4)
+qinst_mm.index = pd.to_datetime(qinst_mm.index)
+
+pr_mm = pd.read_csv('datos/estaciones/pr_RioMaipoEnElManzano_2013-08.csv')
+pr_mm.index = pd.to_datetime(pr_mm['Fecha'])
+pr_mm = pr_mm['Valor'].drop_duplicates()
+pr_mm = pr_mm.reindex(pd.date_range(interval.start,
+                                    interval.stop, freq='h')).fillna(0)
 # =============================================================================
 # Estacion dgf
 # =============================================================================
@@ -273,10 +278,6 @@ datos_dgf = pd.read_csv(
     "datos/estaciones/dgf/DATOSUTC_2004-2019.csv", index_col=0)
 datos_dgf.index = pd.to_datetime(
     datos_dgf.index.values)-datetime.timedelta(hours=4)
-datos_dgf['23'] = mixing_ratio_from_relative_humidity((1e3+datos_dgf.iloc[:, 8]).values*units('hPa'),
-                                                      datos_dgf.iloc[:,
-                                                                     5].values*units('°C'),
-                                                      datos_dgf.iloc[:, 6].values*units('%')).magnitude
 # =============================================================================
 # pr cr2met
 # =============================================================================
@@ -289,7 +290,7 @@ pr_cr2met = pr_cr2met.squeeze()
 
 
 # %%
-h0_mm = H0_mm['STODOMINGO'].dropna().reindex(pr_cr2met.index)-300
+h0_mm = H0_mm.dropna().reindex(pr_cr2met.index, method='nearest')-300
 sl_mm = SL_mm['MODIS_H20'].dropna().reindex(pr_cr2met.index)
 ROS = h0_mm-sl_mm
 ROS = ROS[pr_cr2met > 3].dropna()
@@ -298,11 +299,7 @@ ROS.columns = ["dH", 'pr']
 
 # %%
 # date = "2010-06-23"
-date = "2013-08-11"
-# date = "2002-06-01"
-interval = datetime.datetime.strptime(date, '%Y-%m-%d')
-interval = slice(interval-datetime.timedelta(days=9),
-                 interval+datetime.timedelta(days=9))
+
 
 fig, ax = plt.subplots(4, 1, sharex=True, figsize=(8, 8))
 fig.tight_layout(pad=0.8)
@@ -311,13 +308,13 @@ plt.rc('font', size=18)
 # plot snowlimit and freezinglevel
 # =============================================================================
 ax[0].plot(SL_mm['MODIS_H50'][interval], color='lightblue', marker='o', mec='k',
-           ms=7, ls=":", label='Snow Limit')
+           ms=7, ls=":", label='Snow Limit', zorder=10)
 # ax[0].plot(h0_mm[interval], color="tab:red", ls=":",
 #             marker="o", ms=7, mec="k", label='Zero Degree Level')
-ax[0].errorbar(h0_mm[interval].index, h0_mm[interval],
+ax[0].errorbar(H0_mm[interval].index, H0_mm[interval],
                yerr=300, color='tab:red', ls=':',
                marker='o', ms=7, mec='k', label='Zero Degree Level',
-               uplims=True)
+               uplims=True, zorder=30)
 ax[0].set_yticks(np.arange(1e3, 5e3, 1e3))
 ax[0].set_ylim(0, 5e3)
 ax[0].set_ylabel('Height\n$(m.a.s.l)$')
@@ -331,16 +328,21 @@ ax00.set_ylabel('SWR\n$(W/m^2)$')
 # =============================================================================
 # plot precipitation and temperature
 # =============================================================================
-ax[1].bar(datos_dgf[interval].index, datos_dgf[interval].iloc[:, 9]*24,
+ax[1].bar(pr_mm[interval].index,
+          datos_dgf[interval].iloc[:, 9].resample('h').sum(),
           width=1/24,
           zorder=1, color='royalblue', label='DGF-Roof')
 
-ax[1].bar(pr_cr2met[interval].index, pr_cr2met[interval], alpha=0.5,
-          zorder=0, color='cadetblue', label='CR2MET Basin Mean',
-          width=1, edgecolor='k')
-ax[1].set_ylim(0, 40)
-ax[1].set_yticks(np.arange(5, 40, 10))
-ax[1].set_ylabel('Precipitation\n$(mm/day)$')
+# ax[1].bar(pr_cr2met[interval].index, pr_cr2met[interval], alpha=0.5,
+#           zorder=0, color='cadetblue', label='CR2MET Basin Mean',
+#           width=1, edgecolor='k')
+
+ax[1].bar(pr_mm[interval].index, pr_mm[interval], alpha=0.5,
+          zorder=0, color='cadetblue', label='MaipoEnElManzano',
+          width=1/24)
+ax[1].set_ylim(0, 8)
+ax[1].set_yticks(np.arange(2, 8, 2))
+ax[1].set_ylabel('Precipitation\n$(mm/hour)$')
 ax[1].legend(loc=(0, 1.01), fontsize=16, frameon=False, ncol=2)
 ax11 = ax[1].twinx()
 ax11.plot(datos_dgf[interval].index, datos_dgf[interval].iloc[:, 5],
@@ -353,10 +355,10 @@ ax11.set_ylabel('Temperature\n$(°C)$')
 # plot wind and humidity
 # =============================================================================
 
-ax[2].plot(datos_dgf[interval].iloc[:, 23]*1e3, color='darkorchid')
-ax[2].set_ylim(0, 10)
-ax[2].set_yticks(np.arange(2, 10, 2))
-ax[2].set_ylabel('Vapor Mixing\nRatio $(g/kg)$')
+ax[2].plot(datos_dgf[interval].iloc[:, 8]+1e3, color='darkorchid', zorder=10)
+ax[2].set_ylim(947, 965)
+ax[2].set_yticks(np.arange(950, 965, 3))
+ax[2].set_ylabel('Barometric\nPressure $(mb)$')
 ax22 = ax[2].twinx()
 ax22.plot(datos_dgf[interval].iloc[:, 12], color='tab:green')
 ax22.set_ylim(0, 6)

@@ -40,6 +40,12 @@ H0 = (H0+dem).where(H0 >= 300).load()
 
 pr_cr2met = xr.open_mfdataset(
     glob('datos/cr2met/CR2MET_pr*'), chunks='auto').pr
+
+
+H0_stodomingo = pd.read_csv('datos/isotermas0_maipomanzano.csv',
+                            index_col=0)
+H0_stodomingo = H0_stodomingo['STODOMINGO']
+H0_stodomingo.index = pd.to_datetime(H0_stodomingo.index)
 # %%
 
 # =============================================================================
@@ -141,11 +147,21 @@ H0_prlat = [H0_coast.iloc[:, i][(pr_andes.iloc[:, i] > 3).values].mean()
             for i in range(len(H0_coast.columns))]
 ax.plot(coast.lat, pd.Series(H0_prlat).rolling(5, center=True).mean(),
         color='purple', label='Precipitation Days')
-ax.fill_between(andes.lat, andes.elevation, y2=0,
+ax.fill_between(andes.lat, andes.elevation.rolling(5, center=True).mean(),
+                y2=0,
                 color="grey", zorder=0, alpha=0.8, lw=0)
-ax.plot(andes.lat, andes.elevation, color='k', alpha=0.5, lw=1, zorder=1)
+ax.plot(andes.lat, andes.elevation.rolling(5, center=True).mean(),
+        color='k', alpha=0.5, lw=1, zorder=1)
 ax.plot([], [], color='grey', label='Andes Elevation')
-ax.legend(fontsize=12, frameon=False, loc=(0, 1))
+
+ax.scatter(-33.64, H0_stodomingo.mean(), color='tab:red',
+           edgecolor='k', zorder=100, s=100)
+ax.scatter(-33.64, H0_stodomingo.reindex(pr_andes.index,
+                                         method='nearest')[pr_andes.iloc[:, 57] > 3].mean(),
+           edgecolor='k', color='blueviolet', zorder=100, s=100)
+ax.scatter([], [], color='white', edgecolor='k',
+           label='Sto. Domingo\nRadiosonde')
+ax.legend(fontsize=12, frameon=False, loc=(0, 1), ncol=2)
 for i in range(len(target_lats)):
     v = H0_coast.iloc[:, idx_coast[i]]
     ax.boxplot(v, positions=[target_lats[i]-0.2], sym="", widths=0.25,
@@ -166,17 +182,24 @@ ax.set_ylabel('Zero Degree Level (m)')
 ax.set_xlabel('Latitude along the coastline (°S)')
 
 # coast montain
-target_lons = [-73.5, -72, -71, -68.5]
-maskmont = np.isnan(h0cuts.T).sum(axis=1) < 365*31*1
+target_lons = [-73.5, -72.4, -71, -68.5]
 ax1.fill_between(dem.lon, dem.sel(lat=-33.64, method='nearest'),
                  color='grey', zorder=10, lw=0, alpha=0.8)
 ax1.plot(dem.lon, dem.sel(lat=-33.64, method='nearest'),
          color='k', lw=1, alpha=0.5)
 h0cuts.T[::1000].plot(ax=ax1, color='tab:red', alpha=0.5, legend=False)
-ax1.plot(h0cuts.columns, h0cuts.mean(axis=0).where(maskmont),
+mask = (h0cuts.columns > -70.3) & (h0cuts.columns < -69.25)
+ax1.plot(h0cuts.columns,
+         h0cuts.mean(axis=0).where(~mask),
          color='tab:red', lw=2)
-ax1.plot(h0cuts.columns, h0cuts_pr.mean(axis=0).where(maskmont),
+ax1.plot(h0cuts.columns,
+         h0cuts_pr.mean(axis=0).where(~mask),
          color='blueviolet', lw=2)
+ax1.scatter(-71.62, H0_stodomingo.mean(), color='tab:red',
+            edgecolor='k', zorder=100, s=100)
+ax1.scatter(-71.62, H0_stodomingo.reindex(pr_andes.index,
+                                          method='nearest')[pr_andes.iloc[:, 57] > 3].mean(),
+            edgecolor='k', color='blueviolet', zorder=100, s=100)
 for i, lon in enumerate(target_lons):
     pos = np.argwhere(np.diff(np.sign(h0cuts.columns.values-lon)))
     v = h0cuts.iloc[:, pos.item()].dropna()
