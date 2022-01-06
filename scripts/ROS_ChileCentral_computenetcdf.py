@@ -34,6 +34,7 @@ if compute:
 
         print("Making boolean masks...")
         ROS = xr.where((SWE > 10/1e3) & (LPR > 3/1e3), 1.0, 0.0)
+        ROS = ROS.reindex({'lon': SWE.lon, 'lat': SWE.lat}, method='nearest')
         ROS = xr.where(SWE > 10/1e3, ROS, -9999)
         ROS = ROS.compute()
         ROS.attrs = {"short_name": "ROS",
@@ -62,6 +63,7 @@ if compute:
             {"time": SWE.time})
 
         ROS = xr.where((SWE > 10) & (PR > 3) & (T2M > 0), 1, 0)
+        ROS = ROS.reindex({'lon': SWE.lon, 'lat': SWE.lat}, method='nearest')
         ROS = xr.where(SWE > 10, ROS, -9999)
         ROS = ROS.compute()
         ROS.attrs = {"short_name": "ROS",
@@ -90,6 +92,7 @@ PR & T2M from CR2MET Boisier et al"}
             {'time': SWE.time}, method='nearest')
 
         ROS = xr.where((SWE > 10) & (PR > 3) & (FL >= 300), 1, 0)
+        ROS = ROS.reindex({'lon': SWE.lon, 'lat': SWE.lat}, method='nearest')
         ROS = xr.where(SWE > 10, ROS, -9999)
         ROS = ROS.compute()
         ROS.attrs = {"short_name": "ROS",

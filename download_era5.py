@@ -2,7 +2,8 @@ import cdsapi
 
 c = cdsapi.Client()
 
-years = ['1984']
+years = [1984+i for i in range(32)]
+years = list(map(lambda x: str(x),years))
 # years = ['1995', '1996', '1997',
 #          '1998', '1999', '2000',
 #          '2001', '2002', '2003',
@@ -42,6 +43,9 @@ c.retrieve(
         'time': [
             '00:00',
             '12:00',
+        ],
+        'area': [
+            -26,-74,-38,-67
         ],
     },
     'download1984.nc')

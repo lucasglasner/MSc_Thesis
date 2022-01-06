@@ -94,8 +94,8 @@ fig, ax = plt.subplots(1, 4, sharex=True, sharey=True,
 plt.rcParams.update({'font.size': 18})
 ax = ax.ravel()
 for axis in ax:
-    axis.set_extent([-73, -68, -26, -38])
-    axis.coastlines()
+    axis.set_extent([-74, -68, -26, -38])
+    axis.coastlines(rasterized=True)
     axis.add_feature(cf.BORDERS)
     gl = axis.gridlines(linestyle=":")
     gl.xlocator = mticker.FixedLocator([])
@@ -104,8 +104,8 @@ for axis in ax:
     gl.right_labels = False
     gl.xlines = False
     cuencas.boundary.plot(ax=axis, color="k", lw=0.5)
-    # axis.add_feature(cf.LAND)
-    axis.add_feature(cf.OCEAN)
+    axis.add_feature(cf.LAND, color='k', alpha=0.2, rasterized=True)
+    axis.add_feature(cf.OCEAN, rasterized=True)
     # axis.stock_img("10m")
 
 cmaplist = pd.read_csv("terraincolormap.txt").values

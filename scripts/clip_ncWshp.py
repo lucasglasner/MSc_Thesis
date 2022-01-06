@@ -9,9 +9,12 @@ Created on Mon Aug 30 12:28:13 2021
 # =============================================================================
 # Script for clipping a netCDF multidimensional raster with a polygon inside an
 # ESRI shapefile. 
-# Example use: clip_ncWshp.py polygon.shp netCDF.nc output.nc
-# Only valid for EPSG:4326 projection files. netCDF coordinates names must be 
-# lat,lon (CF convention)
+# Example of use from shell:
+#
+# python3 clip_ncWshp.py polygon.shp in.nc out.nc
+#
+# Only valid for files referenced to the EPSG:4326 (WGS84) ellipsoid!.
+# netCDF grid coordinates must be named explicitly "lat,lon" (CF convention)
 # =============================================================================
 
 """
