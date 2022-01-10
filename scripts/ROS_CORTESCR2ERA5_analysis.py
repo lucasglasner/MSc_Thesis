@@ -6,11 +6,7 @@ Created on Tue Jan  4 10:12:44 2022
 @author: lucas
 
 # =============================================================================
-# This Script does... 
-# Inputs... 
-# Outputs...
-# How to use... 
-# Examples...
+# This Script does the spatial analysis of ROS days in the Andes mountain range
 # =============================================================================
 """
 
@@ -78,7 +74,7 @@ del maxSWE
 DEM = xr.open_dataset('datos/topography/Andes_topo_005x005grad.nc')
 latC, lonC = DEM.lat.values.squeeze(), DEM.lon.values.squeeze()
 LATC, LONC = np.meshgrid(latC, lonC)
-DEM = DEM.elevation.values.squeeze().T
+DEM = DEM.elevation
 
 maskC = mask.reindex({'lat': latC,
                       'lon': lonC},
@@ -88,13 +84,31 @@ maskC = maskC.T > 20
 # DEM = DEM.reindex({'lat': lat, 'lon': lon}, method="nearest")
 
 # %%
+
+# =============================================================================
+# Create Data for maps
+# =============================================================================
+
+ROS_days = freq_CORTESCR2MET.where(mask)
+mean_rainydays = mean_rainydays.where(mask).reindex({'lat': ROS_days.lat,
+                                                     'lon': ROS_days.lon},
+                                                    method='nearest')
+DEM = DEM.where(maskC).reindex({'lat': ROS_days.lat,
+                                'lon': ROS_days.lon},
+                               method='nearest')
+timing = timing.where(mask.values)
+
+
+# %%
 fig, ax = plt.subplots(1, 4, sharex=True, sharey=True,
                        subplot_kw={"projection": ccrs.PlateCarree()},
-                       figsize=(18, 8))
+                       figsize=(18, 6))
+ax2 = []
 plt.rcParams.update({'font.size': 18})
 ax = ax.ravel()
 for axis in ax:
     axis.set_extent([-74, -68, -26, -38])
+    # axis.set_extent([-74, -69.7, -33, -34.32], crs=ccrs.PlateCarree())
     axis.coastlines(rasterized=True)
     axis.add_feature(cf.BORDERS)
     gl = axis.gridlines(linestyle=":")
@@ -106,7 +120,7 @@ for axis in ax:
     cuencas.boundary.plot(ax=axis, color="k", lw=0.5)
     axis.add_feature(cf.LAND, color='k', alpha=0.2, rasterized=True)
     axis.add_feature(cf.OCEAN, rasterized=True)
-    # axis.stock_img("10m")
+
 
 cmaplist = pd.read_csv("terraincolormap.txt").values
 cmaplist = [list(np.array(i)/255) for i in cmaplist]
@@ -114,29 +128,28 @@ cmap = mpl.colors.LinearSegmentedColormap.from_list('Custom cmap',
                                                     cmaplist,
                                                     len(cmaplist))
 
-
-mapa0 = ax[0].pcolormesh(LONC, LATC, np.where(maskC.values, DEM, np.nan),
+mask = (ROS_days/mean_rainydays != 0).values
+mapa0 = ax[0].pcolormesh(LON, LAT, DEM,
                          cmap=cmap,
                          transform=ccrs.PlateCarree(), vmin=0, vmax=5e3,
                          rasterized=True)
 
-mapa1 = ax[1].pcolormesh(LON, LAT, mean_rainydays.where(mask.values),
+mapa1 = ax[1].pcolormesh(LON, LAT, mean_rainydays,
                          cmap="cividis_r",
                          transform=ccrs.PlateCarree(),
                          rasterized=True)
 mapa2 = ax[2].pcolormesh(LON, LAT,
-                         freq_CORTESCR2MET.where(
-                             mask.values)/mean_rainydays.where(mask.values),
+                         (ROS_days/mean_rainydays)*100,
                          cmap="viridis", transform=ccrs.PlateCarree(),
                          rasterized=True)
-mapa3 = ax[3].pcolormesh(LON, LAT, timing.where(mask.values),
+mapa3 = ax[3].pcolormesh(LON, LAT, timing.where(mask),
                          cmap='nipy_spectral',
                          transform=ccrs.PlateCarree(), rasterized=True)
 
 
 ax[0].set_title("Orography\n(m.a.s.l)")
 ax[1].set_title("Rain Frequency\n"+r"($\frac{N°Rainy Days}{year}$)")
-ax[2].set_title("ROS/Rain\nFrequency\nRatio (-)")
+ax[2].set_title("ROS/Rain\nFrequency\nRatio (%)")
 ax[3].set_title("Maximum ROS\nTiming")
 
 cb0 = fig.colorbar(mapa0, ax=ax[0], aspect=40)
@@ -152,6 +165,6 @@ gl.ylocator = mticker.FixedLocator([-37, -35, -33, -31, -29, -27])
 gl.top_labels = False
 gl.right_labels = False
 gl.xlines = False
-# gl.ylines = False
-plt.savefig('plots/ROS_CORTESCR2METERA5_73W-68W-26S-38S.pdf', dpi=150,
+gl.ylines = False
+plt.savefig('plots/ROS_CORTESCR2METERA5_73W-68W-26S-38S_new.pdf', dpi=150,
             bbox_inches="tight")

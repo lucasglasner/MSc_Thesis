@@ -392,5 +392,5 @@ for axis in ax:
     for m in axis.xaxis.get_minor_ticks():
         m.label.set_fontsize(16)
 
-plt.savefig('plots/maipomanzano/ROS_maipo_caseofstudy.pdf', dpi=150,
+plt.savefig('plots/caseofstudy_Aug2013/ROS_maipo_caseofstudy.pdf', dpi=150,
             bbox_inches='tight')

@@ -22,7 +22,7 @@ if compute:
     # method = "ERA5LAND"
     method = 'CORTES - CR2MET - ERA5'
     yr = "%YR%"
-    # yr = "2000"
+    # yr = "2013"
     print("Current year: "+yr)
     if method == 'ERA5LAND':
         outdir = 'datos/ROS/ERA5LAND/'
@@ -43,7 +43,6 @@ if compute:
                      "parent_dataset": "ERA5-Land"}
         print("Saving output...")
         ROS = ROS.to_dataset(name='ROS')
-        ROS.to_netcdf(outdir+'Rain-Over-Snow_'+yr+'.nc')
         ROS.to_netcdf(outdir+'Rain-Over-Snow_'+yr+'.nc')
         print('Setting missing values...')
         os.system('cdo -P 8 -z zip_9 setmissval,-9999 '+outdir +
@@ -84,14 +83,18 @@ PR & T2M from CR2MET Boisier et al"}
         swe_path = 'datos/ANDES_SWE_Cortes/regrid_cr2met/ANDES_SWE_'+yr+'.nc'
         pr_path = 'datos/cr2met/CR2MET_pr_'+yr+'.nc'
         H0_path = 'datos/era5/H0_ERA5_'+yr+'.nc'
+        dswe_path = 'datos/ANDES_SWE_Cortes/regrid_cr2met/ANDES_dSWE_'+yr+'.nc'
 
         SWE = xr.open_dataset(swe_path, chunks='auto').SWE
+        dSWE = xr.open_dataset(dswe_path, chunks='auto').SWE.reindex(
+            {'time': SWE.time}, method='nearest')
         PR = xr.open_dataset(pr_path, chunks='auto').pr.reindex(
             {'time': SWE.time}, method='nearest')
         FL = xr.open_dataset(H0_path, chunks='auto').deg0l.reindex(
             {'time': SWE.time}, method='nearest')
 
-        ROS = xr.where((SWE > 10) & (PR > 3) & (FL >= 300), 1, 0)
+        ROS = xr.where((SWE > 10) & (PR > 3) & (FL >= 300) & (dSWE < 0),
+                       1, 0)
         ROS = ROS.reindex({'lon': SWE.lon, 'lat': SWE.lat}, method='nearest')
         ROS = xr.where(SWE > 10, ROS, -9999)
         ROS = ROS.compute()

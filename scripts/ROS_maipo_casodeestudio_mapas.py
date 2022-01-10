@@ -10,6 +10,7 @@ Created on Tue Jan  4 14:47:34 2022
 # =============================================================================
 """
 
+
 from functions import add_labels
 import matplotlib.pyplot as plt
 import numpy as np
@@ -117,8 +118,10 @@ ax[0, 0].legend(frameon=False, loc=(-0.14, 1.5), ncol=3,
 add_labels(ax, xticks=[-70], yticks=[-33.2, -33.7, -34.2], linewidth=0)
 box1, box2 = ax[0, -1].get_position(), ax[-1, -1].get_position()
 cax = fig.add_axes([box1.xmax*1.05, box2.ymin, 0.025, box1.ymax-box2.ymin])
+fig.text(0.09, 0.905, 'SCA: ', ha='center', va='center', fontsize=14)
 fig.colorbar(map1, cax=cax, label='Fraction of Snow\nCover Area (%)')
-plt.savefig('plots/caseofstudy/modis_maps.pdf', dpi=150, bbox_inches='tight')
+plt.savefig('plots/caseofstudy_Aug2013/modis_maps.pdf',
+            dpi=150, bbox_inches='tight')
 
 
 # %%
@@ -148,7 +151,10 @@ SWE = xr.open_mfdataset(
     chunks='auto')
 maxSWE = xr.where(SWE.SWE.max(dim='time') > 20, 1, 0).load()
 SWE = SWE.SWE.reindex({'time': fSCA_t.time}, method='nearest').load()
-SWE = SWE.diff(dim='time')
+SWEdiff = xr.open_mfdataset(
+    glob('datos/ANDES_SWE_Cortes/regrid_cr2met/ANDES_dSWE_[!WY]*.nc'),
+    chunks='auto')
+SWEdiff = SWEdiff.SWE.reindex({'time': fSCA_t.time}, method='nearest').load()
 
 # %%
 # =============================================================================
@@ -192,7 +198,7 @@ for i in range(len(days)):
                                   cmap='summer',
                                   norm=mpl.colors.Normalize(0, 3e3))
     SWE_plot = ax[2, i].pcolormesh(lon2d, lat2d,
-                                   SWE.sel(time=days[i]),
+                                   SWEdiff.sel(time=days[i]),
                                    rasterized=True,
                                    cmap='RdBu',
                                    norm=mpl.colors.TwoSlopeNorm(vmin=-10.,
@@ -205,7 +211,7 @@ for i in range(len(days)):
                               lat2d,
                               np.nan)[:-1, :-1]+0.05/2,
                      color='red',
-                     s=0.01,
+                     s=0.1,
                      rasterized=True)
     ax[0, i].set_title(titles[i], fontsize=14)
 box1 = ax[0, -1].get_position()
@@ -235,5 +241,5 @@ for axis in [ax[0, 0], ax[1, 0], ax[2, 0]]:
     gl.top_labels = False
     gl.right_labels = False
     gl.bottom_labels = False
-plt.savefig('plots/caseofstudy/pr_swe_fl_maps.pdf',
+plt.savefig('plots/caseofstudy_Aug2013/pr_swe_fl_maps.pdf',
             dpi=150, bbox_inches='tight')
