@@ -168,12 +168,12 @@ ROS = ROS.ROS.reindex({'time': fSCA_t.time}, method='nearest').load()
 # %%
 
 days = ["2013-08-05", "2013-08-07", "2013-08-09",
-        "2013-08-11", "2013-08-13"]
+        "2013-08-10", "2013-08-11", "2013-08-13"]
 titles = [datetime.datetime.strptime(d, '%Y-%m-%d').strftime('%b-%d')
           for d in days]
 titles[0] = '2013\n'+titles[0]
-fig, ax = plt.subplots(3, 5, subplot_kw={'projection': ccrs.PlateCarree()},
-                       figsize=(7, 10))
+fig, ax = plt.subplots(3, 6, subplot_kw={'projection': ccrs.PlateCarree()},
+                       figsize=(10, 10))
 plt.rc('font', size=18)
 lon2d, lat2d = np.meshgrid(ROS.lon, ROS.lat)
 for axis in ax.ravel():
@@ -227,7 +227,7 @@ fig.colorbar(h0_plot, cax=cax2, label='Freezing Level\n$(m.a.g.l)$')
 fig.colorbar(SWE_plot, cax=cax3,
              label='Snow Water\nEquivalent Change\n$(mm/day)$')
 
-for axis in [ax[-1, 0], ax[-1, 1], ax[-1, 2], ax[-1, 3], ax[-1, 4]]:
+for axis in ax[-1, :]:
     gl = axis.gridlines(linewidth=0, draw_labels=True)
     gl.xlocator = mpl.ticker.FixedLocator([-70.5])
     gl.ylocator = mpl.ticker.FixedLocator([])
@@ -242,4 +242,82 @@ for axis in [ax[0, 0], ax[1, 0], ax[2, 0]]:
     gl.right_labels = False
     gl.bottom_labels = False
 plt.savefig('plots/caseofstudy_Aug2013/pr_swe_fl_maps.pdf',
+            dpi=150, bbox_inches='tight')
+
+
+# %%
+days = ["2013-08-05", "2013-08-07", "2013-08-09",
+        "2013-08-10", "2013-08-11", "2013-08-13"]
+titles = [datetime.datetime.strptime(d, '%Y-%m-%d').strftime('%b-%d')
+          for d in days]
+titles[0] = '2013\n'+titles[0]
+fig, ax = plt.subplots(3, 6, subplot_kw={'projection': ccrs.PlateCarree()},
+                       figsize=(10, 10))
+plt.rc('font', size=18)
+lon2d, lat2d = np.meshgrid(ROS.lon, ROS.lat)
+for axis in ax.ravel():
+    axis.set_extent([-72, -69, -32.4, -37.3])
+    axis.coastlines()
+    axis.add_feature(cf.BORDERS, ls=":", rasterized=True)
+    axis.add_feature(cf.OCEAN, rasterized=True)
+    axis.add_feature(cf.LAND, color='k', alpha=0.2, rasterized=True)
+    basin.boundary.plot(ax=axis, transform=ccrs.PlateCarree(),
+                        color='k', lw=0.5)
+
+for i in range(len(days)):
+    pr_plot = ax[0, i].pcolormesh(lon2d, lat2d,
+                                  PR.sel(time=days[i]),
+                                  rasterized=True,
+                                  cmap='Blues',
+                                  norm=mpl.colors.Normalize(0, 60))
+    h0_plot = ax[1, i].pcolormesh(lon2d, lat2d,
+                                  H0_ERA5.sel(time=days[i])-300,
+                                  rasterized=True,
+                                  cmap='summer',
+                                  norm=mpl.colors.Normalize(0, 3e3))
+    SWE_plot = ax[2, i].pcolormesh(lon2d, lat2d,
+                                   SWEdiff.sel(time=days[i]),
+                                   rasterized=True,
+                                   cmap='RdBu',
+                                   norm=mpl.colors.TwoSlopeNorm(vmin=-10.,
+                                                                vcenter=0.,
+                                                                vmax=40))
+    ax[1, i].scatter(np.where(ROS.sel(time=days[i]) == 1,
+                              lon2d,
+                              np.nan)[:-1, :-1]+0.05/2,
+                     np.where(ROS.sel(time=days[i]) == 1,
+                              lat2d,
+                              np.nan)[:-1, :-1]+0.05/2,
+                     color='red',
+                     s=1,
+                     rasterized=True)
+    ax[0, i].set_title(titles[i], fontsize=14)
+box1 = ax[0, -1].get_position()
+box2 = ax[1, -1].get_position()
+box3 = ax[2, -1].get_position()
+
+cax1 = fig.add_axes([box1.xmax*1.05, box1.ymin, 0.025, box1.ymax-box1.ymin])
+cax2 = fig.add_axes([box2.xmax*1.05, box2.ymin, 0.025, box2.ymax-box2.ymin])
+cax3 = fig.add_axes([box3.xmax*1.05, box3.ymin, 0.025, box3.ymax-box3.ymin])
+
+fig.colorbar(pr_plot, cax=cax1, label='Precipitation\n$(mm/day)$')
+fig.colorbar(h0_plot, cax=cax2, label='Freezing Level\n$(m.a.g.l)$')
+fig.colorbar(SWE_plot, cax=cax3,
+             label='Snow Water\nEquivalent Change\n$(mm/day)$')
+
+for axis in ax[-1, :]:
+    gl = axis.gridlines(linewidth=0, draw_labels=True)
+    gl.xlocator = mpl.ticker.FixedLocator([-70.5])
+    gl.ylocator = mpl.ticker.FixedLocator([])
+    gl.top_labels = False
+    gl.right_labels = False
+    gl.left_labels = False
+for axis in [ax[0, 0], ax[1, 0], ax[2, 0]]:
+    gl = axis.gridlines(linewidth=0, draw_labels=True)
+    gl.xlocator = mpl.ticker.FixedLocator([])
+    gl.ylocator = mpl.ticker.FixedLocator([-37, -36, -35, -34, -33])
+    gl.top_labels = False
+    gl.right_labels = False
+    gl.bottom_labels = False
+plt.savefig('plots/caseofstudy_Aug2013/pr_swe_fl_maps_maipomanzano.pdf',
             dpi=150, bbox_inches='tight')

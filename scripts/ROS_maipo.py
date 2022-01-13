@@ -11,6 +11,8 @@ Created on Wed Aug 25 18:48:01 2021
 
 """
 
+
+from functions import seasonal_decompose, sliding_interval_filter
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -24,13 +26,16 @@ from glob import glob
 import gc
 import geopandas as gpd
 import scipy.stats as st
-
-
+import sys
+# %%
+sys.path.append('functions.py')
 # %%
 # =============================================================================
 # load data
 # =============================================================================
 
+hypso = pd.read_csv(
+    'datos/topography/basins/hipso/RioMaipoEnElManzano_Hipso.csv')
 
 isotermas0 = pd.read_csv(
     "datos/isotermas0_maipomanzano.csv", index_col=0).dropna(how="all")
@@ -220,7 +225,7 @@ else:
 # =============================================================================
 # COMPUTE ROS BASED ON SNOWLIMIT AND FREEZING LEVEL METHOD.
 # =============================================================================
-times = pd.date_range("1979-01-01", "2021-01-01", freq="d")
+times = pd.date_range("1985-01-01", "2014-12-31", freq="d")
 SL_cond = snowlimits.reindex(pr_cr2met.index)[
     pr_cr2met.values > 3].dropna(how="all").reindex(times)
 FL_cond = isotermas0.reindex(pr_cr2met.index)[
@@ -229,38 +234,63 @@ FL_cond = isotermas0.reindex(pr_cr2met.index)[
 ROS1 = {sl: {fl: None for fl in FL_cond.columns} for sl in SL_cond.columns}
 for SL in SL_cond.columns:
     for FL in FL_cond.columns:
-        ROS1[SL][FL] = SL_cond[SL]-FL_cond[FL]
+        interp = interp1d(hypso['height'], hypso['Area_km2'],
+                          fill_value='extrapolate')
+        snow_area = interp(SL_cond[SL])
+        liquid_area = interp(FL_cond[FL])
+        ROS_area = (liquid_area-snow_area)/hypso['Area_km2'].iloc[-1]
+        ROS1[SL][FL] = pd.Series(ROS_area,
+                                 index=SL_cond[SL].index)
         ROS1[SL][FL].name = SL+" - "+FL
 ROS1 = pd.concat([pd.concat(list(ROS1.values())[i].values(), axis=1)
                   for i in range(len(SL_cond.columns))], axis=1)
-
-ROS = ROS1 < 0
-
-# ROS["ERA5LAND"] = ROS_ERA5LAND.reindex(times) > 0.2
-ROS["CORTES - CR2MET - ERA5"] = ROS_CCE.reindex(times) > 0.15
-ROS["CORTES - CR2MET"] = ROS_CORTESCR2MET.reindex(times) > 0.15
-
-# meanROS = ROS.groupby([ROS.index.year, ROS.index.month]).sum()
-# meanROS = meanROS.unstack().mean(axis=0).unstack().T
-# pairs = meanROS.max().sort_values().index
-# meanROS = meanROS[pairs]
 
 pairs = ["MODIS_H50 - STODOMINGO",
          "CORTES - CR2MET",
          # "CORTES_H50 - CR2MET_H50_MM",
          "CORTES - CR2MET - ERA5"]
-ROS = ROS[pairs].dropna(how="all")
 
+ROS1["CORTES - CR2MET - ERA5"] = ROS_CCE.reindex(times)
+ROS1["CORTES - CR2MET"] = ROS_CORTESCR2MET.reindex(times)
+ROS1 = ROS1[pairs]
+
+ROS = ROS1 > 0
+ROS["CORTES - CR2MET - ERA5"] = ROS_CCE.reindex(times) > 0.1
+ROS["CORTES - CR2MET"] = ROS_CORTESCR2MET.reindex(times) > 0.1
+ROS = ROS[pairs]
+
+# ROS["ERA5LAND"] = ROS_ERA5LAND.reindex(times) > 0.2
+
+nanmask = np.isnan(ROS1['MODIS_H50 - STODOMINGO'])
+
+ROS['MODIS_H50 - STODOMINGO'] = ROS['MODIS_H50 - STODOMINGO'].where(~nanmask)
+meanROS = ROS.groupby([ROS.index.year, ROS.index.month]).sum()
+meanROS = meanROS.unstack().mean(axis=0).unstack().T
+meanROS['MODIS_H50 - STODOMINGO'] = ROS['MODIS_H50 - STODOMINGO'].dropna().groupby([ROS['MODIS_H50 - STODOMINGO'].dropna().index.year,
+                                                                                    ROS['MODIS_H50 - STODOMINGO'].dropna().index.month]).sum().unstack().mean(axis=0)
+meanROS = meanROS.iloc[:, [-1, 0, 1]]
 for pair in pairs:
     ROS[pair] = ROS[pair].map(lambda x: False if np.isnan(x) else bool(x))
 
-meanROS = ROS.groupby([ROS.index.year, ROS.index.month]).sum()
-meanROS = meanROS.unstack().mean(axis=0).unstack().T
+# meanROS = ROS.reindex(ROS1['MODIS_H50 - STODOMINGO'].dropna().index)
+ROS1 = ROS1.where((~np.isnan(ROS1)) & (ROS1 >= 0), np.nan)
+
 gc.collect()
 # %%
+events = []
+for i in range(len(ROS.columns)):
+    y = ROS.iloc[:, i]
+    x = y.groupby([y, (y != y.shift()).cumsum()]).size()
+    events.append(x.unstack().iloc[1, :].dropna().reset_index(drop=True))
 
-fig, ax = plt.subplots(1, 2, figsize=(12, 3))
-# fig.tight_layout(pad=0.5)
+
+durations = [(events[j].groupby(events[j]).sum()/events[j].shape).reindex(np.arange(20))
+             for j in range(len(ROS.columns))]
+durations = pd.concat(durations, axis=1)
+durations.columns = ROS.columns
+# %%
+fig, ax = plt.subplots(2, 2, figsize=(14, 7))
+fig.tight_layout(pad=1.3)
 plt.rc('font', size=18)
 ax = ax.ravel()
 year = ROS.resample("y").sum().applymap(lambda x: np.nan if x == 0 else x)
@@ -270,27 +300,58 @@ for pair in pairs:
     m = st.linregress(range(len(var)), var)
     trend = "{:.2f}".format(m.slope)
     pvalue = "{:.2f}".format(m.pvalue)
-    ax[1].plot(var, label="Trend: "+trend+" Events/year",
+    ax[1].plot(var, label="Trend: "+trend+" days/year",
                alpha=0.8)
 ax[1].legend(loc=(0, 1), frameon=False, fontsize=16)
+# ax[1].set_xticklabels()
+# ax[1].sharex(ax[3])
 ax[1].tick_params(axis='x', rotation=45)
-meanROS.plot(ax=ax[0], alpha=0.8)
+meanROS.plot.bar(ax=ax[0], alpha=0.8, edgecolor='k')
+
+
+for i in meanROS.columns:
+    ax[0].plot(np.arange(0, 12, 1), meanROS[i], ls=":")
 #     var = ROS.groupby(ROS.index.dayofyear).sum()[pair]
 #     var = seasonal_decompose(var,365,6,1)[0]
 #     ax[0].plot(np.linspace(1,12,len(var)),var)
 ax[0].legend(frameon=False, loc=(0, 1), fontsize=16)
-ax[0].set_ylim(0, 4)
-ax[0].set_xticks(np.arange(1, 13, 1))
+ax[0].set_ylim(0, 7)
+ax[0].set_xticks(np.arange(0, 12, 1))
 ax[0].set_xticklabels(["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL",
                        "AGO", "SEP", "OCT", "NOV", "DIC"])
 ax[0].tick_params(axis='x', rotation=45)
 ax[0].grid(ls=":", axis="x")
 ax[0].set_ylabel("Monthly mean\nROS Events)")
-ax[1].set_ylabel("N° ROS Events")
+ax[1].set_ylabel("N° ROS days")
 
+ax[2].scatter(ROS1.iloc[:, 0], ROS1.iloc[:, 1], color='tab:orange', ec='k',
+              alpha=0.5)
+ax[2].scatter(ROS1.iloc[:, 0], ROS1.iloc[:, 2], color='tab:green', ec='k',
+              alpha=0.5)
+ax[2].set_ylim(0, 1)
+ax[2].set_xlim(0, 1)
+ax[2].plot([0, 1], [0, 1], 'k')
+ax[2].set_ylabel('Model ROS (REANALYSIS)\nFractional Area (-)')
+ax[2].set_xlabel('Observed ROS (MODIS/STODOMINGO)\n Fractional Area (-)')
+
+
+durations.plot.bar(ax=ax[3], legend=False, ec='k')
+ax[3].set_xlim(0, 15)
+ax[3].set_xlabel('ROS Events Duration (days)')
+ax[3].set_xticks(np.arange(1, 15))
+ax[3].tick_params(axis='x', rotation=0)
+ax[3].set_ylabel('N°Events\nover total Events')
+ax[3].grid(axis='x')
+ax[3].set_ylim(0, 1)
 
 # ax[2].plot(ROS)
 plt.savefig("plots/maipomanzano/ROS_maipo.pdf", dpi=150, bbox_inches="tight")
+
+# %%
+# =============================================================================
+# ROS consequences on runoff
+# =============================================================================
+
 
 # %%
 # minims = ROS11.min()

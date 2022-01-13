@@ -11,6 +11,7 @@ Created on Mon Jan  3 11:35:21 2022
 """
 
 # %%
+from sklearn.decomposition import PCA
 import xarray as xr
 import pandas as pd
 import numpy as np
@@ -27,7 +28,7 @@ import cmocean as cm
 # =============================================================================
 # Load H0, height and precipitation data !!
 # =============================================================================
-H0 = xr.open_mfdataset(glob('datos/era5/H0_ERA5_*.nc')).deg0l
+H0 = xr.open_mfdataset(glob('datos/era5/H0_ERA5_*.nc'), chunks='auto').deg0l
 dem = xr.open_dataset(
     'datos/topography/ERA5_orography_005x005grad.nc').elevation
 dem = dem.reindex({'lat': H0.lat, 'lon': H0.lon}, method='nearest').load()
@@ -37,6 +38,7 @@ dem = dem.reindex({'lat': H0.lat, 'lon': H0.lon}, method='nearest').load()
 # dem_era5 = dem_era5.reindex({'lat': H0.lat, 'lon': H0.lon},
 #                             method='nearest').load()
 H0 = (H0+dem).where(H0 >= 300).load()
+# H0 = (H0+dem).load()
 
 pr_cr2met = xr.open_mfdataset(
     glob('datos/cr2met/CR2MET_pr*'), chunks='auto').pr
@@ -113,7 +115,7 @@ for lat in target_lats:
 
 # %%
 # =============================================================================
-# coast-montain h0 cuts
+# coast-montain h0 cuts for sto domingo
 # =============================================================================
 
 h0cuts = [H0.sel(time=t, lat=-33.64, method='nearest').to_series()
@@ -137,7 +139,7 @@ h0cuts_pr = h0cuts[mask.values]
 fig = plt.figure(figsize=(16, 4))
 plt.rc('font', size=18)
 ax = fig.add_subplot(121)
-ax1 = fig.add_subplot(122)
+ax1 = fig.add_subplot(122, sharey=ax)
 
 
 # coast profile
@@ -180,6 +182,7 @@ ax.set_xticks(target_lats)
 ax.set_xticklabels(target_lats)
 ax.set_ylabel('Zero Degree Level (m)')
 ax.set_xlabel('Latitude along the coastline (°S)')
+ax.set_xlim(-26, -38)
 
 # coast montain
 target_lons = [-73.5, -72.4, -71, -68.5]
@@ -187,8 +190,16 @@ ax1.fill_between(dem.lon, dem.sel(lat=-33.64, method='nearest'),
                  color='grey', zorder=10, lw=0, alpha=0.8)
 ax1.plot(dem.lon, dem.sel(lat=-33.64, method='nearest'),
          color='k', lw=1, alpha=0.5)
-h0cuts.T[::1000].plot(ax=ax1, color='tab:red', alpha=0.5, legend=False)
+# h0cuts.T[::1000].plot(ax=ax1, color='tab:red', alpha=0.5, legend=False)
 mask = (h0cuts.columns > -70.3) & (h0cuts.columns < -69.25)
+# ax1.fill_between(h0cuts.columns,
+#                  h0cuts.mean(axis=0).where(~mask)-h0cuts.std(axis=0).where(~mask),
+#                  h0cuts.mean(axis=0).where(~mask)+h0cuts.std(axis=0).where(~mask),
+#                  color='tab:red', alpha=0.25)
+# ax1.fill_between(h0cuts.columns,
+#                  h0cuts_pr.mean(axis=0).where(~mask)-h0cuts_pr.std(axis=0).where(~mask),
+#                  h0cuts_pr.mean(axis=0).where(~mask)+h0cuts_pr.std(axis=0).where(~mask),
+#                  color='blueviolet', alpha=0.25)
 ax1.plot(h0cuts.columns,
          h0cuts.mean(axis=0).where(~mask),
          color='tab:red', lw=2)
@@ -262,6 +273,7 @@ scycle_rainy = H0.where(pr_cr2met.assign_coords(
     {'time': pd.date_range('1984-01-01T12:00:00', '2015-12-31T12:00:00')}) > 3)
 scycle_rainy = scycle_rainy.assign_coords(season=seasons)
 scycle_rainy = scycle_rainy.groupby('season').mean().compute()
+scycle_rainy = scycle_rainy.reindex({'lon': scycle.lon})
 
 # %%
 
@@ -271,23 +283,28 @@ fig, ax = plt.subplots(1, 4, subplot_kw={'projection': ccrs.PlateCarree()},
 lon2d, lat2d = np.meshgrid(scycle.lon, scycle.lat)
 for axis in ax.ravel():
     axis.coastlines()
-    axis.set_xlim(-72, -68)
+    axis.add_feature(cf.BORDERS, ls=":")
+    axis.set_xlim(-74, -68)
     axis.set_ylim(H0.lat.min(), H0.lat.max())
 
 pos = [0, 3, 1, 2]
 for i in range(4):
-    p1 = ax[i].pcolormesh(lon2d, lat2d, scycle[pos[i], :, :],
+    p1 = ax[i].pcolormesh(lon2d, lat2d, scycle_rainy[pos[i], :, :],
                           rasterized=True,
-                          cmap='Spectral_r',
-                          norm=colors.Normalize(2.5e3, 6e3))
+                          shading='auto',
+                          cmap='summer',
+                          norm=colors.Normalize(2.5e3, 6e3),
+                          linewidth=0,
+                          antialiased=False)
+    p1.set_edgecolor('face')
     ax[i].set_title(scycle.season[pos[i]].item())
-    gl = ax[i].gridlines(linestyle=":", draw_labels=True)
+    gl = ax[i].gridlines(draw_labels=True, linewidth=0)
     gl.right_labels = False
     gl.top_labels = False
     gl.left_labels = False
     gl.xlocator = mticker.FixedLocator([-70])
 
-gl = ax[0].gridlines(linestyle=":", draw_labels=True)
+gl = ax[0].gridlines(draw_labels=True, linewidth=0)
 gl.right_labels = False
 gl.top_labels = False
 gl.xlocator = mticker.FixedLocator([-70])
@@ -298,4 +315,38 @@ cax1 = fig.add_axes([box1.xmax+0.05, box1.ymin, 0.02, box1.ymax-box1.ymin])
 
 fig.colorbar(p1, cax=cax1, label='Zero Degree Level\n(Meters Above Sea Level)')
 
-plt.savefig('plots/H0_climatology.pdf', dpi=150, bbox_inches='tight')
+plt.savefig('plots/H0_climatology_precipdays.pdf',
+            dpi=150, bbox_inches='tight')
+
+# %% H0 MEAN CUTS
+
+var1 = scycle.mean(dim='lat').to_dataframe(name='hi').unstack()
+var2 = scycle_rainy.mean(dim='lat').to_dataframe(
+    name='hi').interpolate().unstack()
+
+var1_std = scycle.std(dim='lat').to_dataframe(name='hi').unstack()
+var2_std = scycle_rainy.std(dim='lat').to_dataframe(
+    name='hi').interpolate().unstack()
+
+fig, ax = plt.subplots(1, 4, sharex=True, figsize=(15, 3), sharey=True)
+
+titles = ['autumn', 'winter', 'spring', 'summer']
+for i, s in enumerate(titles):
+    ax[i].plot(H0.lon, var1.loc[s], color='tab:red', label='All Days')
+    ax[i].plot(H0.lon, var2.loc[s], color='blueviolet',
+               label='Precipitation\nDays')
+    ax[i].fill_between(H0.lon, var1.loc[s]+var1_std.loc[s],
+                       var1.loc[s]-var1_std.loc[s],
+                       color='tab:red', lw=2, alpha=0.25)
+    ax[i].fill_between(H0.lon, var2.loc[s]+var2_std.loc[s],
+                       var2.loc[s]-var2_std.loc[s],
+                       color='blueviolet', lw=2, alpha=0.25)
+    ax[i].fill_between(H0.lon, dem.mean(dim='lat'), color='grey')
+    ax[i].set_title(s)
+    ax[i].set_ylim(0, 8e3)
+    ax[i].set_xlim(-74, -68)
+
+ax[0].legend(frameon=False, fontsize=16, loc=(0, 1.2))
+ax[0].set_ylabel('Zero Degree Level (m)')
+fig.text(0.5, -0.09, 'Longitude (°W)', ha='center', va='center')
+plt.savefig('plots/H0_meanlat.pdf', dpi=150, bbox_inches='tight')
