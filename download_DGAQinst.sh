@@ -1,7 +1,40 @@
 #Download data from DGA website
 
-yr=$1
-curl 'https://snia.mop.gob.cl/BNAConsultas/reportes' -X POST -H 'User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:95.0) Gecko/20100101 Firefox/95.0' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' -H 'Accept-Language: en-US,en;q=0.5' -H 'Accept-Encoding: gzip, deflate, br' -H 'Content-Type: application/x-www-form-urlencoded' -H 'Origin: https://snia.mop.gob.cl' -H 'DNT: 1' -H 'Connection: keep-alive' -H 'Referer: https://snia.mop.gob.cl/BNAConsultas/reportes' -H 'Cookie: cookiesession1=474F5F368HFGYKSRVH388SKSMC81526A; JSESSIONID=0000ekTCqwAMJac8zvJy-NsEP4U:-1' -H 'Upgrade-Insecure-Requests: 1' -H 'Sec-Fetch-Dest: document' -H 'Sec-Fetch-Mode: navigate' -H 'Sec-Fetch-Site: same-origin' -H 'Sec-Fetch-User: ?1' -H 'Sec-GPC: 1' -H 'TE: trailers' --data-raw "filtroscirhform=filtroscirhform&filtroscirhform%3AregionFieldSetId-value=true&filtroscirhform%3Aj_idt30-value=filtroscirhform%3Aj_idt35&filtroscirhform%3Aj_idt40=on&filtroscirhform%3ApanelFiltroEstaciones-value=true&filtroscirhform%3Aregion=5&filtroscirhform%3AselectBusqForEstacion=1&filtroscirhform%3Acuenca=4&filtroscirhform%3Aestacion=&g-recaptcha-response=&filtroscirhform%3Aj_idt100-value=true&filtroscirhform%3Aj_idt321=on&filtroscirhform%3Aj_idt102-value=true&filtroscirhform%3AfechaDesdeInputDate=01%2F01%2F${yr}&filtroscirhform%3AfechaDesdeInputCurrentDate=01%2F${yr}&filtroscirhform%3AfechaHastaInputDate=31%2F12%2F${yr}&filtroscirhform%3AfechaHastaInputCurrentDate=01%2F${yr}&filtroscirhform%3Agenerarxls=Generar+XLS&javax.faces.ViewState=5279387254385696645%3A-3682787062478285423" --output $yr.xlsx
+outdir=$1
+iyr=1984
+fyr=2015
+
+dga=$(cat DGA_cURL)
+str1=$(echo $dga | cut -d "&" -f14)
+str2=$(echo $dga | cut -d "&" -f15)
+str3=$(echo $dga | cut -d "&" -f16)
+str4=$(echo $dga | cut -d "&" -f17)
+
+nstr1=$(echo $str1 | sed 's/'$(echo $str1 | cut -d "=" -f2)'//g')
+nstr2=$(echo $str2 | sed 's/'$(echo $str2 | cut -d "=" -f2)'//g')
+nstr3=$(echo $str3 | sed 's/'$(echo $str3 | cut -d "=" -f2)'//g')
+nstr4=$(echo $str4 | sed 's/'$(echo $str4 | cut -d "=" -f2)'//g')
+
+
+for yr in $(seq $iyr $fyr);do
+    echo Downloading Runoff Data from year $yr...
+    n1=${nstr1}01%2F01%2F${yr}
+    n2=${nstr2}01%2F${yr}
+    n3=${nstr3}31%2F12%2F${yr}
+    n4=${nstr4}01%2F${yr}
+
+    cURL=$(echo $dga | sed "s/$str1/$n1/g")
+    cURL=$(echo $cURL | sed "s/$str2/$n2/g")
+    cURL=$(echo $cURL | sed "s/$str3/$n3/g")
+    cURL=$(echo $cURL | sed "s/$str4/$n4/g")
+    
+    echo $cURL --output $yr.xlsx | bash
+    mv $yr.xlsx $outdir/$yr.xlsx
+done
+
+echo Done
+
+
 exit
 
 
