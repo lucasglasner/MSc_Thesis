@@ -12,18 +12,17 @@ Created on Sun Aug 29 21:54:21 2021
 """
 
 
-
 import geopandas as gpd
 import os
 
-#%%
+# %%
 
-landcover_path = "datos/landcover/LC_CHILE_2014_b.tif"
+landcover_path = "datos/landcover/LC_CHILE_2014_b_final.nc"
 basin_polygons = gpd.read_file("datos/vector/cuencas_CAMELS.gpkg")
 
 
-#%%
-basins = ["Rio Aconcagua En Chacabuquito", 
+# %%
+basins = ["Rio Aconcagua En Chacabuquito",
           "Rio Choapa En Lamahuida",
           "Rio Elqui En Algarrobal",
           "Rio Illapel En Huintil",
@@ -38,23 +37,24 @@ basins = ["Rio Aconcagua En Chacabuquito",
           "Rio Colorado En Junta Con Palos",
           "Rio Maule En Armerillo",
           "Rio ÑUble En San Fabian"]
+# basins = ['Rio Choapa En Salamanca']
 
-#%%
+# %%
 
 polygons = [basin_polygons[basin_polygons["gauge_name"] == b] for b in basins]
 
-#%%
+# %%
 
 for polygon in polygons:
-    name = polygon.gauge_name.item().replace(" ","")
+    name = polygon.gauge_name.item().replace(" ", "")
     print(name)
     path = "tmp/"+name+".shp"
     polygon.to_file(path)
     if ~os.path.isfile("datos/vector/"+name+".shp"):
         polygon.to_file("datos/vector/"+name+".shp")
-    os.system("gdalwarp -of netCDF -cutline "+path+" -crop_to_cutline "+
+    os.system("gdalwarp -of netCDF -cutline "+path+" -crop_to_cutline " +
               landcover_path+" tmp/"+name+"_tmp.nc")
-    os.system("gdalwarp -t_srs '+proj=longlat +datum=WGS84 +nodefs'"+
-              " tmp/"+name+"_tmp.nc "+
+    os.system("gdalwarp -t_srs '+proj=longlat +datum=WGS84 +nodefs'" +
+              " tmp/"+name+"_tmp.nc " +
               " datos/landcover/basins/"+name+".nc")
 os.system("rm -rf tmp/*")

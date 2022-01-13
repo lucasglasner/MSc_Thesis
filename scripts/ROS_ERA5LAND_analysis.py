@@ -110,19 +110,19 @@ cmap = mpl.colors.LinearSegmentedColormap.from_list('Custom cmap',
                                                     len(cmaplist))
 
 
-mapa0 = ax[0].pcolormesh(LONC, LATC, np.where(maskC.values, DEM, np.nan),
+mapa0 = ax[0].pcolormesh(LONC, LATC, DEM,
                          cmap=cmap,
                          transform=ccrs.PlateCarree(), vmin=0, vmax=5e3,
                          rasterized=True)
 
-mapa1 = ax[1].pcolormesh(LON, LAT, mean_rainydays.where(mask.values),
+mapa1 = ax[1].pcolormesh(LON, LAT, mean_rainydays.tp,
                          cmap="cividis_r",
                          transform=ccrs.PlateCarree(),
                          rasterized=True)
-mapa2 = ax[2].pcolormesh(LON, LAT, freq_ERA5LAND.where(mask.values),
+mapa2 = ax[2].pcolormesh(LON, LAT, freq_ERA5LAND/mean_rainydays.tp,
                          cmap="viridis", transform=ccrs.PlateCarree(),
-                         rasterized=True)
-mapa3 = ax[3].pcolormesh(LON, LAT, timing.where(mask.values),
+                         rasterized=True, vmin=0, vmax=0.4)
+mapa3 = ax[3].pcolormesh(LON, LAT, timing,
                          cmap='nipy_spectral',
                          transform=ccrs.PlateCarree(), rasterized=True)
 
