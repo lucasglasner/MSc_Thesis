@@ -21,8 +21,10 @@ from glob import glob
 # %%
 # Target Year
 
-yr = "2013"
+# yr = "%YR%"
+yr = 2013
 
+print('Computing year number: '+yr)
 # =============================================================================
 # ROS dataset
 # =============================================================================
@@ -72,8 +74,12 @@ LC = LC.Band1.to_dataset(name='Land_Cover').Land_Cover
 
 # %%
 basins = ["Rio Aconcagua En Chacabuquito",
-          "Rio Choapa En Salamanca",
-          "Rio Maipo En El Manzano"]
+          "Rio Maipo En El Manzano",
+          "Rio Colorado En Junta Con Palos",
+          "Rio Putaendo En Resguardo Los Patos",
+          "Rio Teno Despues De Junta Con Claro",
+          "Rio Tinguiririca Bajo Los Briones",
+          "Rio ÑUble En San Fabian"]
 
 
 # %%
@@ -251,13 +257,21 @@ def compute_dataset(data, datatype='basinwide'):
 
 
 # %%
+print('Creating raster data for each basin...')
+
 raster_data = [join_basindatasets(b, [SWE, PR, ROS, LC, dSWE, FL])
                for b in basins]
 
 # %%
+print('Computing time series...')
 data = [compute_dataset(r, 'basinwide') for r in raster_data]
 data = pd.concat(data, keys=basins)
 
-# %%
 data_ROS = [compute_dataset(r, 'ROS') for r in raster_data]
 data_ROS = pd.concat(data_ROS, keys=basins)
+
+# %%
+print('Saving...')
+data.to_csv('datos/ROS/Basinwide_Timeseries_'+yr+'.csv')
+data.to_csv('datos/ROS/ROS_Timeseries_'+yr+'.csv')
+print('Done')

@@ -225,7 +225,7 @@ interval = slice(interval-datetime.timedelta(days=8),
 # basin polygon and hypsometry
 # =============================================================================
 cuenca = "RioMaipoEnElManzano"
-curva_hipso = pd.read_csv("datos/topography/basins/hipso/"+cuenca+"_Hipso.csv")
+curva_hipso = pd.read_csv("datos/topography/basins/hypso/"+cuenca+"_hypso.csv")
 curva_hipso.drop_duplicates(subset="Area_km2", inplace=True)
 basin = gpd.read_file('datos/vector/'+cuenca+'.shp')
 
@@ -307,16 +307,25 @@ plt.rc('font', size=18)
 # =============================================================================
 # plot snowlimit and freezinglevel
 # =============================================================================
-ax[0].plot(SL_mm['MODIS_H50'][interval], color='lightblue', marker='o', mec='k',
-           ms=7, ls=":", label='Snow Limit', zorder=10)
+# ax[0].plot(SL_mm['MODIS_H50'][interval], color='lightblue', marker='o', mec='k',
+#            ms=7, ls=":", label='Snow Limit', zorder=10)
+yerr1 = SL_mm['MODIS_H50']-SL_mm['MODIS_H20']
+yerr2 = SL_mm['MODIS_H80']-SL_mm['MODIS_H50']
+ax[0].errorbar(SL_mm[interval].index, SL_mm['MODIS_H50'][interval],
+               yerr=[yerr1[interval], yerr2[interval]],
+               color='tab:blue', marker='o', mec='k', capsize=3,
+               ms=7, ls=":", label='Snow Limit', zorder=10)
 # ax[0].plot(h0_mm[interval], color="tab:red", ls=":",
 #             marker="o", ms=7, mec="k", label='Zero Degree Level')
 ax[0].errorbar(H0_mm[interval].index, H0_mm[interval],
-               yerr=300, color='tab:red', ls=':',
+               yerr=[np.ones(len(H0_mm[interval].index))*300,
+                     np.zeros(len(H0_mm[interval].index))],
+               color='tab:red', ls=':',
                marker='o', ms=7, mec='k', label='Zero Degree Level',
-               uplims=True, zorder=30)
+               zorder=9,
+               capsize=3)
 ax[0].set_yticks(np.arange(1e3, 5e3, 1e3))
-ax[0].set_ylim(0, 5e3)
+ax[0].set_ylim(800, 4.3e3)
 ax[0].set_ylabel('Height\n$(m.a.s.l)$')
 ax[0].legend(frameon=False, loc=(0, 1.01), ncol=2, fontsize=16)
 ax00 = ax[0].twinx()
@@ -324,6 +333,7 @@ ax00.plot(datos_dgf[interval].iloc[:, 7], color='k', alpha=0.3, label='SWR')
 ax00.set_ylim(0, 5e2)
 ax00.set_yticks(np.arange(100, 500, 100))
 ax00.set_ylabel('SWR\n$(W/m^2)$')
+ax[0].grid(ls=":")
 
 # =============================================================================
 # plot precipitation and temperature
@@ -340,14 +350,14 @@ ax[1].bar(pr_mm[interval].index,
 ax[1].bar(pr_mm[interval].index, pr_mm[interval], alpha=0.5,
           zorder=0, color='cadetblue', label='MaipoEnElManzano',
           width=1/24)
-ax[1].set_ylim(0, 8)
-ax[1].set_yticks(np.arange(2, 8, 2))
+ax[1].set_ylim(0, 7.2)
+ax[1].set_yticks([1, 3, 5, 7])
 ax[1].set_ylabel('Precipitation\n$(mm/hour)$')
 ax[1].legend(loc=(0, 1.01), fontsize=16, frameon=False, ncol=2)
 ax11 = ax[1].twinx()
 ax11.plot(datos_dgf[interval].index, datos_dgf[interval].iloc[:, 5],
           color="k", lw=1, alpha=0.8)
-ax11.set_ylim(0, 30)
+ax11.set_ylim(2, 25)
 ax11.set_yticks(np.arange(5, 30, 5))
 ax11.set_ylabel('Temperature\n$(°C)$')
 
@@ -369,9 +379,9 @@ ax22.set_ylabel('Wind Speed\n$(m/s)$')
 # plot streamflow
 # =============================================================================
 
-ax[3].plot(qinst_mm[interval], color='darkblue', label='Surface Runoff')
-ax[3].set_ylim(30, 90)
-ax[3].set_yticks(np.arange(40, 90, 15))
+ax[3].plot(qinst_mm[interval], color='darkblue', label='Direct Runoff')
+ax[3].set_ylim(35, 73)
+ax[3].set_yticks([40, 50, 60, 70])
 ax[3].plot(sliding_interval_filter(qinst_mm[interval], 40)[0],
            color='chocolate', label='Base Flow')
 ax[3].set_ylabel('Runoff\n$(m^3/s)$')

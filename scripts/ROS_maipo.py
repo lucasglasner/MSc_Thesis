@@ -35,7 +35,7 @@ sys.path.append('functions.py')
 # =============================================================================
 
 hypso = pd.read_csv(
-    'datos/topography/basins/hipso/RioMaipoEnElManzano_Hipso.csv')
+    'datos/topography/basins/hypso/RioMaipoEnElManzano_hypso.csv')
 
 isotermas0 = pd.read_csv(
     "datos/isotermas0_maipomanzano.csv", index_col=0).dropna(how="all")
@@ -290,7 +290,7 @@ durations = pd.concat(durations, axis=1)
 durations.columns = ROS.columns
 # %%
 fig, ax = plt.subplots(2, 2, figsize=(14, 7))
-fig.tight_layout(pad=1.3)
+fig.tight_layout(pad=1.5)
 plt.rc('font', size=18)
 ax = ax.ravel()
 year = ROS.resample("y").sum().applymap(lambda x: np.nan if x == 0 else x)
@@ -302,6 +302,7 @@ for pair in pairs:
     pvalue = "{:.2f}".format(m.pvalue)
     ax[1].plot(var, label="Trend: "+trend+" days/year",
                alpha=0.8)
+ax[1].plot(year[pairs[0]].dropna(), color='tab:blue', lw=2)
 ax[1].legend(loc=(0, 1), frameon=False, fontsize=16)
 # ax[1].set_xticklabels()
 # ax[1].sharex(ax[3])

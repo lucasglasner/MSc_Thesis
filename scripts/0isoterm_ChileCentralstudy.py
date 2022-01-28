@@ -118,7 +118,7 @@ for lat in target_lats:
 # coast-montain h0 cuts for sto domingo
 # =============================================================================
 
-h0cuts = [H0.sel(time=t, lat=-33.64, method='nearest').to_series()
+h0cuts = [H0[:, 87, :].sel(time=t).to_series()
           for t in H0.time]
 h0cuts = pd.concat(h0cuts, axis=1)
 h0cuts.columns = H0.time.values
@@ -176,7 +176,7 @@ for i in range(len(target_lats)):
                patch_artist=True, medianprops={'color': 'k'},
                boxprops={'facecolor': 'blueviolet'}, zorder=3)
 ax.set_xlim(coast.lat.max(), coast.lat.min())
-ax.set_ylim(0, 8e3)
+ax.set_ylim(0, 6e3)
 ax.axvline(-33.64, ls=":", color='k')
 ax.set_xticks(target_lats)
 ax.set_xticklabels(target_lats)
@@ -224,7 +224,7 @@ for i, lon in enumerate(target_lons):
                 sym="", patch_artist=True, medianprops={'color': 'k'},
                 boxprops={'facecolor': 'blueviolet'}, zorder=11)
 
-ax1.set_ylim(0, 8e3)
+ax1.set_ylim(0, 6e3)
 ax1.set_xlim(-74, -68)
 ax1.set_xlabel('Longitude along the 33.64°S parallel (°W)')
 # ax1.grid(axis='y',ls=":")
@@ -247,7 +247,7 @@ ax2.add_feature(cf.LAND)
 ax2.add_feature(cf.OCEAN)
 
 
-plt.savefig('plots/H0_coastprofile.pdf', dpi=150, bbox_inches='tight')
+# plt.savefig('plots/H0_coastprofile.pdf', dpi=150, bbox_inches='tight')
 
 # %%
 seasons = H0.time.to_series().index.month
