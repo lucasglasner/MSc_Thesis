@@ -81,7 +81,9 @@ if how == "whole":
     paths = "datos/ANDES_SWE_Cortes/regrid_cr2met/RioMaipoEnElManzano/ANDES*"
     paths = glob(paths)
     SWE = xr.open_mfdataset(paths, chunks='auto').SWE
-
+    paths = 'datos/ANDES_SWE_Cortes/regrid_cr2met/ANDES_dSWE_*.nc'
+    dSWE = xr.open_mfdataset(paths).SWE
+    dSWE = dSWE.reindex({'time': SWE.time.to_series().index})
     paths = "datos/era5/H0_ERA5_*.nc"
     H0 = xr.open_mfdataset(paths, chunks='auto').deg0l
     H0 = H0.reindex({"time": SWE.time.to_series().index,
@@ -94,7 +96,7 @@ if how == "whole":
     PR = PR.reindex({"time": SWE.time.to_series().index},
                     method='nearest')
 
-    ROS_CCE = np.where((SWE > 10) & (H0 > 300) & (PR > 3),
+    ROS_CCE = np.where((SWE > 10) & (H0 > 300) & (PR > 3) & (dSWE < 0),
                        True, False)
     ROS = np.empty(ROS_CCE.shape[0])
     for i in range(ROS_CCE.shape[0]):
@@ -176,6 +178,9 @@ if how == "whole":
     paths = glob(paths)
     SWE = xr.open_mfdataset(paths).SWE
 
+    paths = 'datos/ANDES_SWE_Cortes/regrid_cr2met/ANDES_dSWE_*.nc'
+    dSWE = xr.open_mfdataset(paths).SWE
+    dSWE = dSWE.reindex({'time': SWE.time.to_series().index})
     paths = "datos/cr2met/RioMaipoEnElManzano_CR2MET_t2m_1979-2020.nc"
     T2M = xr.open_dataset(paths).t2m
     T2M = T2M.reindex({"time": SWE.time.to_series().index})
@@ -184,7 +189,7 @@ if how == "whole":
     PR = xr.open_dataset(paths).pr
     PR = PR.reindex({"time": SWE.time.to_series().index})
 
-    ROS_CORTESCR2MET = np.where((SWE > 10) & (T2M > 0) & (PR > 3),
+    ROS_CORTESCR2MET = np.where((SWE > 10) & (T2M > 0) & (PR > 3) & (dSWE < 0),
                                 True, False)
     ROS = np.empty(ROS_CORTESCR2MET.shape[0])
     for i in range(ROS_CORTESCR2MET.shape[0]):
@@ -193,7 +198,7 @@ if how == "whole":
     ROS_CORTESCR2MET = pd.Series(ROS, index=SWE.time.values)
     ROS_CORTESCR2MET = ROS_CORTESCR2MET/191
     del SWE, T2M, PR, paths
-elif how == "whole":
+elif how == "centroid":
     paths = "datos/ANDES_SWE_Cortes/regrid_cr2met/RioMaipoEnElManzano/ANDES*"
     paths = glob(paths)
     SWE = xr.open_mfdataset(paths).SWE
@@ -346,8 +351,30 @@ ax[3].grid(axis='x')
 ax[3].set_ylim(0, 1)
 
 # ax[2].plot(ROS)
-plt.savefig("plots/maipomanzano/ROS_maipo.pdf", dpi=150, bbox_inches="tight")
+# plt.savefig("plots/maipomanzano/ROS_maipo.pdf", dpi=150, bbox_inches="tight")
+#
+# %%
+plt.rc('font', size=10)
+# =============================================================================
+# ros time series simple
+# =============================================================================
 
+ROS_mm = xr.open_mfdataset(glob('datos/ROS/CORTES_CR2MET_ERA5/ROS_*.nc'))
+
+
+fig, ax = plt.subplots(1, 2, sharex=False, sharey=True, figsize=(10, 3))
+ax = ax.ravel()
+
+# ax[0].plot(ROS1.iloc[:, 0])
+ax[0].plot(ROS1.iloc[:, 2], alpha=0.5)
+
+yr = '2013'
+
+ROS1[yr].iloc[:, 2].plot(ax=ax[1], alpha=0.5)
+ax[1].axhline(0.15, c='k', ls=':')
+# ax[1].plot(ROS1.iloc[:,0]["2013"])
+# ax[1].plot(ROS1.iloc[:, 2][yr], alpha=0.5)
+#
 # %%
 # =============================================================================
 # ROS consequences on runoff
