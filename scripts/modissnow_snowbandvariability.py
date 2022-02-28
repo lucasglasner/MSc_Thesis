@@ -51,7 +51,7 @@ else:
 # Basin hypsometry
 # =============================================================================
 cuenca = "RioMaipoEnElManzano"
-curva_hipso = pd.read_csv("datos/topography/basins/hipso/"+cuenca+"_Hipso.csv")
+curva_hipso = pd.read_csv("datos/topography/basins/hypso/"+cuenca+"_hypso.csv")
 curva_hipso.drop_duplicates(subset="Area_km2", inplace=True)
 basin = gpd.read_file("datos/vector/RioMaipoEnElManzano.shp")
 # =============================================================================
@@ -226,7 +226,7 @@ tile_props = tile_props.loc[fSCA_bands.columns]
 
 # Dates of tiles to show, and respective snowband distribution
 # dates = ["2015-12-10","2006-11-10","2005-10-08"]
-dates = ["2015-09-01", "2016-10-26", "2012-11-25"]
+dates = ["2014-06-16", "2013-08-28", "2001-11-26"]
 var = fSCA_bands.loc[:, dates]
 
 cmap = cmocean.cm.ice  # color for maps
@@ -329,7 +329,8 @@ cb = fig.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap), cax=cax)
 cb.set_label("Fraction of Snow Cover Area (%)", fontsize=10)
 
 
-# plt.savefig("plots/maipomanzano/timedifferences_fSCAstudy.pdf",dpi=150,bbox_inches="tight")
+plt.savefig("plots/maipomanzano/timedifferences_fSCAstudy.pdf",
+            dpi=150, bbox_inches="tight")
 
 
 # %%

@@ -2,31 +2,20 @@ import cdsapi
 
 c = cdsapi.Client()
 
-years = [1984+i for i in range(32)]
-years = list(map(lambda x: str(x),years))
-# years = ['1995', '1996', '1997',
-#          '1998', '1999', '2000',
-#          '2001', '2002', '2003',
-#          '2004']
-# years = ['2005', '2006', '2007',
-#          '2008', '2009', '2010',
-#          '2011', '2012', '2013',
-#          '2014', '2015']
-
-
 c.retrieve(
-    'reanalysis-era5-single-levels',
+    'reanalysis-era5-pressure-levels',
     {
         'product_type': 'reanalysis',
         'format': 'netcdf',
-        'variable': 'zero_degree_level',
-        'year': years,
-        'month': [
-            '01', '02', '03',
-            '04', '05', '06',
-            '07', '08', '09',
-            '10', '11', '12',
+        'variable': [
+            'geopotential', 'temperature', 'u_component_of_wind',
+            'v_component_of_wind', 'vorticity',
         ],
+        'pressure_level': [
+            '500', '850', '1000',
+        ],
+        'year': '2013',
+        'month': '08',
         'day': [
             '01', '02', '03',
             '04', '05', '06',
@@ -40,12 +29,10 @@ c.retrieve(
             '28', '29', '30',
             '31',
         ],
-        'time': [
-            '00:00',
-            '12:00',
-        ],
+        'time': '00:00',
         'area': [
-            -26,-74,-38,-67
+            -20, -100, -50,
+            -60,
         ],
     },
-    'download1984.nc')
+    'download_era5_Ago2013_upper.nc')
