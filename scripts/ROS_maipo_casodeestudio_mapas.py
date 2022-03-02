@@ -51,80 +51,6 @@ SCA = pd.read_csv('datos/snowcovers_maipomanzano.csv', index_col=0)
 SCA.index = pd.to_datetime(SCA.index)
 SCA = SCA['IANIGLA'][interval]
 
-# %%
-# =============================================================================
-# Make plot of maipo manzano fSCA
-# =============================================================================
-days = ["2013-08-05", "2013-08-07", "2013-08-09",
-        "2013-08-11", "2013-08-13"]
-lon2d, lat2d = np.meshgrid(fSCA_t.lon, fSCA_t.lat)
-titles = [datetime.datetime.strptime(d, '%Y-%m-%d').strftime('%b-%d')
-          for d in days]
-titles[0] = '2013\n'+titles[0]
-titles = [p+'\n'+str(sca)+'%' for p, sca in zip(titles, SCA[days].values)]
-fig, ax = plt.subplots(2, 5, subplot_kw={'projection': ccrs.PlateCarree()},
-                       figsize=(7, 5))
-plt.rc('font', size=18)
-
-for axis in ax.ravel():
-    axis.coastlines()
-    axis.set_extent([-70.5, -69.7, -33, -34.32], crs=ccrs.PlateCarree())
-    axis.add_feature(cf.BORDERS, ls=":")
-    axis.add_feature(cf.LAND, alpha=0.2, color='k', rasterized=True)
-
-for i in range(len(days)):
-    map1 = ax[0, i].pcolormesh(lon2d, lat2d,
-                               fSCA_t.sel(time=days[i]),
-                               rasterized=True,
-                               cmap=cmocean.cm.ice,
-                               norm=mpl.colors.Normalize(0, 100),
-                               transform=ccrs.PlateCarree())
-    ax[0, i].scatter(np.where(fSCA_t.where(fSCA_t > 100).sel(time=days[i]) > 100,
-                              lon2d,
-                              np.nan)[:-1, :-1],
-                     np.where(fSCA_t.where(fSCA_t > 100).sel(time=days[i]) > 100,
-                              lat2d,
-                              np.nan)[:-1, :-1],
-                     color='red',
-                     s=0.0005,
-                     rasterized=True)
-    map1 = ax[1, i].pcolormesh(lon2d, lat2d,
-                               fSCA_a.sel(time=days[i]),
-                               rasterized=True,
-                               cmap=cmocean.cm.ice,
-                               norm=mpl.colors.Normalize(0, 100),
-                               transform=ccrs.PlateCarree())
-    ax[1, i].scatter(np.where(fSCA_a.where(fSCA_a > 100).sel(time=days[i]) > 100,
-                              lon2d,
-                              np.nan)[:-1, :-1],
-                     np.where(fSCA_a.where(fSCA_a > 100).sel(time=days[i]) > 100,
-                              lat2d,
-                              np.nan)[:-1, :-1],
-                     color='red',
-                     s=0.0005,
-                     rasterized=True)
-    ax[0, i].set_title(titles[i], fontsize=14)
-    basin.boundary.plot(ax=ax[0, i], transform=ccrs.PlateCarree(),
-                        colors='forestgreen')
-    basin.boundary.plot(ax=ax[1, i], transform=ccrs.PlateCarree(),
-                        colors='darkblue')
-
-ax[0, 0].scatter([], [], s=100, marker='s', color='red', label='No Data')
-ax[0, 0].scatter([], [], s=100, marker='s',
-                 color='forestgreen', label='MODIS/TERRA')
-ax[0, 0].scatter([], [], s=100, marker='s',
-                 color='darkblue', label='MODIS/AQUA')
-ax[0, 0].legend(frameon=False, loc=(-0.14, 1.5), ncol=3,
-                fontsize=13)
-
-add_labels(ax, xticks=[-70], yticks=[-33.2, -33.7, -34.2], linewidth=0)
-box1, box2 = ax[0, -1].get_position(), ax[-1, -1].get_position()
-cax = fig.add_axes([box1.xmax*1.05, box2.ymin, 0.025, box1.ymax-box2.ymin])
-fig.text(0.09, 0.905, 'SCA: ', ha='center', va='center', fontsize=14)
-fig.colorbar(map1, cax=cax, label='Fraction of Snow\nCover Area (%)')
-plt.savefig('plots/caseofstudy_Aug2013/modis_maps.pdf',
-            dpi=150, bbox_inches='tight')
-
 
 # %%
 # =============================================================================
@@ -158,6 +84,13 @@ SWEdiff = xr.open_mfdataset(
     chunks='auto')
 SWEdiff = SWEdiff.SWE.reindex({'time': fSCA_t.time}, method='nearest').load()
 
+
+SWE_mm = xr.open_dataset(
+    'datos/ANDES_SWE_Cortes/maipomanzano/ANDES_SWE_WY2014.nc')
+SWE_mm = SWE_mm.SWE.sel(time='2013-08')
+
+cortes_SCA = xr.where(SWE_mm > 10, 1, 0).sum(dim=['lat', 'lon'])
+cortes_SCA = cortes_SCA.to_series()/467798
 # %%
 # =============================================================================
 # LOAD ROS DATA
@@ -169,14 +102,106 @@ ROS = ROS.ROS.reindex({'time': fSCA_t.time}, method='nearest').load()
 
 dem = dem.reindex({'lon': ROS.lon, 'lat': ROS.lat}, method='nearest')
 
+
 # %%
+# =============================================================================
+# Make plot of maipo manzano fSCA
+# =============================================================================
+days = ["2013-08-05", "2013-08-07", "2013-08-09",
+        "2013-08-11", "2013-08-13"]
+titles = [datetime.datetime.strptime(d, '%Y-%m-%d').strftime('%b-%d')
+          for d in days]
+titles[0] = '2013\n'+titles[0]
+titles = [p+'\n'+str(sca)+'%' for p, sca in zip(titles, SCA[days].values)]
+fig, ax = plt.subplots(3, 5, subplot_kw={'projection': ccrs.PlateCarree()},
+                       figsize=(8, 7))
+plt.rc('font', size=18)
+
+for axis in ax.ravel():
+    axis.set_extent([-70.5, -69.7, -33, -34.32], crs=ccrs.PlateCarree())
+    axis.add_feature(cf.BORDERS, ls=":")
+    axis.add_feature(cf.LAND, alpha=0.2, color='k', rasterized=True)
+
+for i in range(len(days)):
+    lon2d, lat2d = np.meshgrid(fSCA_t.lon, fSCA_t.lat)
+    map1 = ax[0, i].pcolormesh(lon2d, lat2d,
+                               fSCA_t.sel(time=days[i]),
+                               rasterized=True,
+                               cmap=cmocean.cm.ice,
+                               norm=mpl.colors.Normalize(0, 100),
+                               transform=ccrs.PlateCarree())
+    ax[0, i].scatter(np.where(fSCA_t.where(fSCA_t > 100).sel(time=days[i]) > 100,
+                              lon2d,
+                              np.nan)[:-1, :-1],
+                     np.where(fSCA_t.where(fSCA_t > 100).sel(time=days[i]) > 100,
+                              lat2d,
+                              np.nan)[:-1, :-1],
+                     color='red',
+                     s=0.0005,
+                     rasterized=True)
+    map1 = ax[1, i].pcolormesh(lon2d, lat2d,
+                               fSCA_a.sel(time=days[i]),
+                               rasterized=True,
+                               cmap=cmocean.cm.ice,
+                               norm=mpl.colors.Normalize(0, 100),
+                               transform=ccrs.PlateCarree())
+    ax[1, i].scatter(np.where(fSCA_a.where(fSCA_a > 100).sel(time=days[i]) > 100,
+                              lon2d,
+                              np.nan)[:-1, :-1],
+                     np.where(fSCA_a.where(fSCA_a > 100).sel(time=days[i]) > 100,
+                              lat2d,
+                              np.nan)[:-1, :-1],
+                     color='red',
+                     s=0.0005,
+                     rasterized=True)
+
+    lon2d, lat2d = np.meshgrid(SWE_mm.lon, SWE_mm.lat)
+    SWE_plot = ax[2, i].pcolormesh(lon2d, lat2d,
+                                   SWE_mm.sel(time=days[i]),
+                                   rasterized=True,
+                                   cmap=cmocean.cm.ice,
+                                   norm=mpl.colors.LogNorm(1, 1e2),
+                                   transform=ccrs.PlateCarree())
+    ax[0, i].set_title(titles[i], fontsize=14)
+    basin.boundary.plot(ax=ax[0, i], transform=ccrs.PlateCarree(),
+                        colors='forestgreen')
+    basin.boundary.plot(ax=ax[1, i], transform=ccrs.PlateCarree(),
+                        colors='darkblue')
+    basin.boundary.plot(ax=ax[2, i], transform=ccrs.PlateCarree(),
+                        colors='gold')
+
+ax[0, 0].scatter([], [], s=100, marker='s', color='red', label='No Data')
+ax[0, 0].scatter([], [], s=100, marker='s',
+                 color='forestgreen', label='MODIS/TERRA')
+ax[0, 0].scatter([], [], s=100, marker='s',
+                 color='darkblue', label='MODIS/AQUA')
+ax[0, 0].scatter([], [], s=100, marker='s',
+                 color='gold', label='CORTES_SWE')
+ax[0, 0].legend(frameon=False, loc=(-1.1, 1.5), ncol=4,
+                fontsize=13)
+
+add_labels(ax, xticks=[-70], yticks=[-33.2, -33.7, -34.2], linewidth=0)
+box1, box2 = ax[0, -1].get_position(), ax[1, -1].get_position()
+cax = fig.add_axes([box1.xmax*1.05, box2.ymin, 0.025, box1.ymax-box2.ymin])
+fig.text(0.09, 0.905, 'SCA: ', ha='center', va='center', fontsize=14)
+fig.colorbar(map1, cax=cax, label='Fraction of Snow\nCover Area (%)')
+
+box3 = ax[-1, -1].get_position()
+cax2 = fig.add_axes([box3.xmax*1.05, box3.ymin, 0.025, box3.ymax-box3.ymin])
+fig.colorbar(SWE_plot, cax=cax2, ticks=[1, 1e1, 1e2, 1e3],
+             label='Snow Water\n Equivalent\n (mm)')
+plt.savefig('plots/caseofstudy_Aug2013/modis_maps.pdf',
+            dpi=150, bbox_inches='tight')
+
+# %%
+
 
 days = ["2013-08-05", "2013-08-07", "2013-08-09",
         "2013-08-10", "2013-08-11", "2013-08-13"]
 titles = [datetime.datetime.strptime(d, '%Y-%m-%d').strftime('%b-%d')
           for d in days]
 titles[0] = '2013\n'+titles[0]
-fig, ax = plt.subplots(4, 6, subplot_kw={'projection': ccrs.PlateCarree()},
+fig, ax = plt.subplots(3, 6, subplot_kw={'projection': ccrs.PlateCarree()},
                        figsize=(10, 13))
 plt.rc('font', size=18)
 lon2d, lat2d = np.meshgrid(ROS.lon, ROS.lat)
@@ -203,13 +228,13 @@ for i in range(len(days)):
                                   cmap='summer',
                                   norm=mpl.colors.Normalize(0, 3e3),
                                   transform=ccrs.PlateCarree())
-    SWE_plot = ax[2, i].pcolormesh(lon2d, lat2d,
-                                   SWE.sel(time=days[i]),
-                                   rasterized=True,
-                                   cmap=cmocean.cm.ice,
-                                   norm=mpl.colors.LogNorm(1, 1e3),
-                                   transform=ccrs.PlateCarree())
-    dSWE_plot = ax[3, i].pcolormesh(lon2d, lat2d,
+    # SWE_plot = ax[2, i].pcolormesh(lon2d, lat2d,
+    #                                SWE.sel(time=days[i]),
+    #                                rasterized=True,
+    #                                cmap=cmocean.cm.ice,
+    #                                norm=mpl.colors.LogNorm(1, 1e3),
+    #                                transform=ccrs.PlateCarree())
+    dSWE_plot = ax[2, i].pcolormesh(lon2d, lat2d,
                                     SWEdiff.sel(time=days[i]),
                                     rasterized=True,
                                     cmap='RdBu',
@@ -217,10 +242,10 @@ for i in range(len(days)):
                                                                  vcenter=0.,
                                                                  vmax=40),
                                     transform=ccrs.PlateCarree())
-    ax[2, i].contour(lon2d, lat2d, dem,
-                     colors='tab:red',
-                     levels=[1500],
-                     linewidths=0.5)
+    # ax[2, i].contour(lon2d, lat2d, dem,
+    #                  colors='tab:red',
+    #                  levels=[1500],
+    #                  linewidths=0.5)
     ax[1, i].scatter(np.where(ROS.sel(time=days[i]) == 1,
                               lon2d,
                               np.nan)[:-1, :-1]+0.05/2,
@@ -234,18 +259,18 @@ for i in range(len(days)):
 box1 = ax[0, -1].get_position()
 box2 = ax[1, -1].get_position()
 box3 = ax[2, -1].get_position()
-box4 = ax[3, -1].get_position()
+# box4 = ax[3, -1].get_position()
 
 cax1 = fig.add_axes([box1.xmax*1.05, box1.ymin, 0.025, box1.ymax-box1.ymin])
 cax2 = fig.add_axes([box2.xmax*1.05, box2.ymin, 0.025, box2.ymax-box2.ymin])
 cax3 = fig.add_axes([box3.xmax*1.05, box3.ymin, 0.025, box3.ymax-box3.ymin])
-cax4 = fig.add_axes([box4.xmax*1.05, box4.ymin, 0.025, box4.ymax-box4.ymin])
+# cax4 = fig.add_axes([box4.xmax*1.05, box4.ymin, 0.025, box4.ymax-box4.ymin])
 
 fig.colorbar(pr_plot, cax=cax1, label='Precipitation\n$(mm/day)$')
 fig.colorbar(h0_plot, cax=cax2, label='Freezing Level\n$(m.a.g.l)$')
-fig.colorbar(SWE_plot, cax=cax3, ticks=[1, 1e1, 1e2, 1e3],
-             label='Snow Water\n Equivalent\n (mm)')
-fig.colorbar(dSWE_plot, cax=cax4,
+# fig.colorbar(SWE_plot, cax=cax3, ticks=[1, 1e1, 1e2, 1e3],
+#              label='Snow Water\n Equivalent\n (mm)')
+fig.colorbar(dSWE_plot, cax=cax3,
              label='Snow Water\nEquivalent Change\n$(mm/day)$')
 
 for axis in ax[-1, :]:
@@ -272,16 +297,16 @@ days = ["2013-08-05", "2013-08-07", "2013-08-09",
 titles = [datetime.datetime.strptime(d, '%Y-%m-%d').strftime('%b-%d')
           for d in days]
 titles[0] = '2013\n'+titles[0]
-fig, ax = plt.subplots(4, 6, subplot_kw={'projection': ccrs.PlateCarree()},
-                       figsize=(10, 9))
-fig.tight_layout(pad=0.5)
+fig, ax = plt.subplots(3, 6, subplot_kw={'projection': ccrs.PlateCarree()},
+                       figsize=(10, 13))
+# fig.tight_layout(pad=1)
 plt.rc('font', size=18)
 lon2d, lat2d = np.meshgrid(ROS.lon, ROS.lat)
 for axis in ax.ravel():
-    axis.set_extent([-72, -69, -33, -36])
+    axis.set_extent([-71.8, -69.6, -32.8, -37.3])
     axis.coastlines()
     axis.add_feature(cf.BORDERS, ls=":", rasterized=True)
-    axis.add_feature(cf.OCEAN, rasterized=True)
+    # # axis.add_feature(cf.OCEAN, rasterized=True)
     axis.add_feature(cf.LAND, color='k', alpha=0.2, rasterized=True)
     basin.boundary.plot(ax=axis, transform=ccrs.PlateCarree(),
                         color='k', lw=0.5)
@@ -299,13 +324,7 @@ for i in range(len(days)):
                                   cmap='summer',
                                   norm=mpl.colors.Normalize(0, 3e3),
                                   transform=ccrs.PlateCarree())
-    SWE_plot = ax[2, i].pcolormesh(lon2d, lat2d,
-                                   SWE.sel(time=days[i]),
-                                   rasterized=True,
-                                   cmap=cmocean.cm.ice,
-                                   norm=mpl.colors.LogNorm(1, 1e3),
-                                   transform=ccrs.PlateCarree())
-    dSWE_plot = ax[3, i].pcolormesh(lon2d, lat2d,
+    dSWE_plot = ax[2, i].pcolormesh(lon2d, lat2d,
                                     SWEdiff.sel(time=days[i]),
                                     rasterized=True,
                                     cmap='RdBu',
@@ -313,10 +332,16 @@ for i in range(len(days)):
                                                                  vcenter=0.,
                                                                  vmax=40),
                                     transform=ccrs.PlateCarree())
-    c = ax[2, i].contour(lon2d, lat2d, dem,
-                         colors='tab:red',
-                         levels=[1500],
-                         linewidths=0.8)
+    # SWE_plot = ax[3, i].pcolormesh(lon2d, lat2d,
+    #                                 SWE.sel(time=days[i]),
+    #                                 rasterized=True,
+    #                                 cmap=cmocean.cm.ice,
+    #                                 norm=mpl.colors.LogNorm(1, 1e3),
+    #                                 transform=ccrs.PlateCarree())
+    # c = ax[3, i].contour(lon2d, lat2d, dem,
+    #                       colors='tab:red',
+    #                       levels=[1500],
+    #                       linewidths=0.8)
     ax[1, i].scatter(np.where(ROS.sel(time=days[i]) == 1,
                               lon2d,
                               np.nan)[:-1, :-1]+0.05/2,
@@ -332,19 +357,19 @@ for i in range(len(days)):
 box1 = ax[0, -1].get_position()
 box2 = ax[1, -1].get_position()
 box3 = ax[2, -1].get_position()
-box4 = ax[3, -1].get_position()
+# box4 = ax[3, -1].get_position()
 
 cax1 = fig.add_axes([box1.xmax*1.05, box1.ymin, 0.025, box1.ymax-box1.ymin])
 cax2 = fig.add_axes([box2.xmax*1.05, box2.ymin, 0.025, box2.ymax-box2.ymin])
 cax3 = fig.add_axes([box3.xmax*1.05, box3.ymin, 0.025, box3.ymax-box3.ymin])
-cax4 = fig.add_axes([box4.xmax*1.05, box4.ymin, 0.025, box4.ymax-box4.ymin])
+# cax4 = fig.add_axes([box4.xmax*1.05, box4.ymin, 0.025, box4.ymax-box4.ymin])
 
 fig.colorbar(pr_plot, cax=cax1, label='Precipitation\n$(mm/day)$')
 fig.colorbar(h0_plot, cax=cax2, label='Freezing Level\n$(m.a.g.l)$')
-fig.colorbar(SWE_plot, cax=cax3, ticks=[1, 1e1, 1e2, 1e3],
-             label='Snow Water\n Equivalent\n (mm)')
-fig.colorbar(dSWE_plot, cax=cax4,
+fig.colorbar(dSWE_plot, cax=cax3,
              label='Snow Water\nEquivalent Change\n$(mm/day)$')
+# fig.colorbar(SWE_plot, cax=cax4, ticks=[1, 1e1, 1e2, 1e3],
+#              label='Snow Water\n Equivalent\n (mm)')
 
 for axis in ax[-1, :]:
     gl = axis.gridlines(linewidth=0, draw_labels=True)
@@ -356,7 +381,7 @@ for axis in ax[-1, :]:
 for axis in ax[:, 0]:
     gl = axis.gridlines(linewidth=0, draw_labels=True)
     gl.xlocator = mpl.ticker.FixedLocator([])
-    gl.ylocator = mpl.ticker.FixedLocator([-35, -34])
+    gl.ylocator = mpl.ticker.FixedLocator([-37, -36, -35, -34, -33])
     gl.top_labels = False
     gl.right_labels = False
     gl.bottom_labels = False
