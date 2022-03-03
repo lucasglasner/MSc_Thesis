@@ -250,7 +250,7 @@ plt.savefig('plots/caseofstudy_Aug2013/synoptic_tpwanalysis.pdf', dpi=150,
 # ivt coastal profile time vs lat
 # =============================================================================
 
-
+plt.rc('font', size=18)
 chile = gpd.read_file('datos/vector/cl_continental_geo.shp')
 fig, ax = plt.subplots(1, 2, sharex=True, sharey=True, figsize=(14, 4))
 # fig.tight_layout(pad=0.5)
@@ -265,7 +265,9 @@ ax[0].set_xlabel('2013-Ago', loc='left')
 ax[1].set_xlabel('2013-Ago', loc='left')
 ax[0].grid(True, ls=":", which='both', axis='x')
 ax[1].grid(True, ls=":", which='both', axis='x')
-
+ax[0].set_ylabel('Latitude (°)')
+ax[0].set_title('74°W IVT evolution', loc='left')
+ax[1].set_title('71°W PR evolution', loc='left')
 map1 = ax[0].contourf(time2d, lat2d, ivt_cut.T, cmap='twilight',
                       levels=np.arange(0, 1250+125, 125), rasterized=True)
 # ax[0].contour(time2d, lat2d, ivt_cut.T, colors='grey',levels=np.arange(0,1250+125,125))
@@ -293,10 +295,16 @@ chile.boundary.plot(ax=ax2, color='k', lw=0.5)
 ax2.set_ylim(-50, -20)
 # ax2.axis('off')
 ax2.set_yticklabels([])
-ax2.set_xticks([-74])
-ax2.set_xticklabels([-74])
+ax2.set_xticks([-74, -71])
+ax2.set_xticklabels([-74, -71])
 ax2.axvline(-74, color='tab:red', ls="--", lw=1.2)
+ax2.axvline(-71, color='purple', lw=1.2, ls='--')
+ax2.set_xlim(-80, -65)
 
-
+ax2.spines['top'].set_visible(False)
+ax2.spines['right'].set_visible(False)
+ax2.spines['bottom'].set_visible(False)
+# ax2.spines['left'].set_visible(False)
+ax2.tick_params(axis="x", rotation=90)
 plt.savefig('plots/caseofstudy_Aug2013/atmospheric_river_evolution.pdf', dpi=150,
             bbox_inches='tight')
