@@ -22,26 +22,14 @@ basin_polygons = gpd.read_file("datos/vector/cuencas_CAMELS.gpkg")
 
 
 # %%
-basins = ["Rio Aconcagua En Chacabuquito",
-          "Rio Choapa En Lamahuida",
-          "Rio Elqui En Algarrobal",
-          "Rio Illapel En Huintil",
-          "Rio Grande En Puntilla San Juan",
-          "Rio Hurtado En Angostura De Pangue",
-          "Rio Putaendo En Resguardo Los Patos",
-          "Rio Mapocho En Los Almendros",
-          "Rio Maipo En El Manzano",
-          "Rio Cachapoal En Pte Termas De Cauquenes",
-          "Rio Tinguiririca Bajo Los Briones",
-          "Rio Teno Despues De Junta Con Claro",
-          "Rio Colorado En Junta Con Palos",
-          "Rio Maule En Armerillo",
-          "Rio ÑUble En San Fabian"]
+basins = [8106002, 7330001, 7350003, 7354002, 7355002, 7317005, 7379002,
+          7112001, 7115001, 7104002, 6028001, 6027001, 6013001, 6008005,
+          5710001, 5722002, 5410002]
 # basins = ['Rio Choapa En Salamanca']
 
 # %%
 
-polygons = [basin_polygons[basin_polygons["gauge_name"] == b] for b in basins]
+polygons = [basin_polygons[basin_polygons["gauge_id"] == b] for b in basins]
 
 # %%
 

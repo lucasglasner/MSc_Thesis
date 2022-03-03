@@ -10,6 +10,7 @@ Created on Mon Feb 28 13:27:42 2022
 # =============================================================================
 """
 
+from glob import glob
 from matplotlib.ticker import FormatStrFormatter
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -24,6 +25,9 @@ from scipy.ndimage.filters import minimum_filter1d, generic_filter
 from scipy.ndimage.measurements import label
 from scipy.signal import argrelextrema
 import xarray as xr
+import cartopy.crs as ccrs
+import geopandas as gpd
+import cartopy.feature as cf
 
 
 def smooth(x, window_len=11, window='hanning'):
@@ -207,24 +211,13 @@ def local_minimum_filter(ts, size):
 
     return baseflow, quickflow
 
-# %%
-# =============================================================================
-# hypsometric curve
-# =============================================================================
 
-
-hypso = pd.read_csv(
-    'datos/topography/basins/hypso/RioMaipoEnElManzano_hypso.csv')
-area = hypso.Area_km2.values[-1]
-
-
-int_func = interp1d(hypso.iloc[:, 0], hypso.iloc[:, 1])
 # %%
 # =============================================================================
 # big time interval and graph time interval
 # =============================================================================
-interval = slice(datetime.datetime(2013, 8, 1),
-                 datetime.datetime(2013, 8, 31))
+interval = slice(datetime.datetime(2013, 8, 4),
+                 datetime.datetime(2013, 8, 16))
 interval2 = slice(datetime.datetime(2013, 8, 11),
                   datetime.datetime(2013, 8, 14))
 
@@ -257,34 +250,6 @@ SCA = SCA[interval]
 
 # %%
 # =============================================================================
-# ZERRO DEGREE LEVEL AND PLUVIAL AREA
-# =============================================================================
-
-H0_mm = pd.read_csv('datos/stodomingo/isoterma0.csv',
-                    index_col=0).squeeze()
-H0_mm.index = pd.to_datetime(H0_mm.index)-datetime.timedelta(hours=4)
-H0_mm = H0_mm[interval]
-
-pluv_area = H0_mm.map(lambda x: int_func(x))*area
-
-# %%
-# =============================================================================
-# RUNOFF AND PRECIPITATION IN MAIPO EN EL MANZANO BASIN OUTLET
-# =============================================================================
-
-qinst_mm = pd.read_csv("datos/estaciones/qinst_RioMaipoEnElManzano.csv",
-                       index_col=0)
-qinst_mm.index = pd.to_datetime(qinst_mm.index)
-qinst_mm = qinst_mm.squeeze()[interval]
-
-pr_mm = pd.read_csv('datos/estaciones/pr_RioMaipoEnElManzano_2013-08.csv')
-pr_mm.index = pd.to_datetime(pr_mm['Fecha'])
-pr_mm = pr_mm['Valor'].drop_duplicates()
-pr_mm = pr_mm.reindex(pd.date_range(interval.start,
-                                    interval.stop, freq='h')).fillna(0)
-
-# %%
-# =============================================================================
 # DGF ROOF STATIION DATA (SANTIAGO CITY)
 # =============================================================================
 datos_dgf = pd.read_csv(
@@ -303,6 +268,66 @@ pr_cr2met.index = pd.to_datetime(
     pr_cr2met["date"])+datetime.timedelta(hours=12)
 pr_cr2met.drop("date", axis=1, inplace=True)
 pr_cr2met = pr_cr2met.squeeze()[interval]
+
+
+# %%
+# =============================================================================
+# hypsometric curves
+# =============================================================================
+
+
+hypso = pd.read_csv(
+    'datos/topography/basins/hypso/RioMaipoEnElManzano_hypso.csv')
+area = hypso.Area_km2.values[-1]
+
+int_func = interp1d(hypso.iloc[:, 0], hypso.iloc[:, 1])
+
+# %%
+# =============================================================================
+# ZERRO DEGREE LEVEL AND PLUVIAL AREA
+# =============================================================================
+
+H0_mm = pd.read_csv('datos/stodomingo/isoterma0.csv',
+                    index_col=0).squeeze()
+H0_mm.index = pd.to_datetime(H0_mm.index)-datetime.timedelta(hours=4)
+H0_mm = H0_mm[interval]
+
+pluv_area = H0_mm.map(lambda x: int_func(x))*area
+
+
+# %%
+# =============================================================================
+# PRECIPITATION IN MAIPO EN EL MANZANO BASIN OUTLET
+# =============================================================================
+
+
+pr_mm = pd.read_csv('datos/estaciones/pr_RioMaipoEnElManzano_2013-08.csv')
+pr_mm.index = pd.to_datetime(pr_mm['Fecha'])
+pr_mm = pr_mm['Valor'].drop_duplicates()
+pr_mm = pr_mm.reindex(pd.date_range(interval.start,
+                                    interval.stop, freq='h')).fillna(0)
+
+
+# %%
+# =============================================================================
+# RUNOFF DATA IN DIFFERENT BASINS
+# =============================================================================
+qinst_mm = pd.read_csv("datos/estaciones/qinst_RioMaipoEnElManzano.csv",
+                       index_col=0)
+qinst_mm.index = pd.to_datetime(qinst_mm.index)
+qinst_mm = qinst_mm.squeeze()[interval]
+
+runoff = pd.read_csv('datos/runoff_gauges_dataset.csv', index_col=0)
+runoff.index = pd.to_datetime(runoff.index)
+runoff = runoff[interval]
+
+# %%
+# =============================================================================
+# BASIN POLYGONS
+# =============================================================================
+paths = glob('datos/vector/basins/*.shp')
+polygons = pd.concat([gpd.read_file(p) for p in paths])
+
 
 # %%
 # =============================================================================
@@ -342,22 +367,25 @@ gain = dSWE[:-1, :, :].where(masks[1:, :, :])
 gain = gain.where(gain > 0).mean(dim=['lat', 'lon']).to_series()
 
 # %%
+# =============================================================================
+# Build table for document
+# =============================================================================
 datos = []
-for dat in [SL_mm, SCA, H0_mm,
+for dat in [SL_mm, SCA, melt*-1, H0_mm,
+            datos_dgf.iloc[:, 9].resample('d').sum(),
+            pr_mm.resample('d').sum(),
             qinst_mm.resample('d').max(),
             datos_dgf.iloc[:, 5].resample('d').mean(),
             datos_dgf.iloc[:, 5].resample('d').max(),
-            datos_dgf.iloc[:, 5].resample('d').min(),
-            datos_dgf.iloc[:, 9].resample('d').sum(),
-            pr_mm.resample('d').sum()]:
+            datos_dgf.iloc[:, 5].resample('d').min()]:
     datos.append(dat[interval])
 
 datos = pd.concat(datos, axis=1)
 datos = datos.resample('d').mean().iloc[:-1, :]
-datos.columns = ["SL", "SCA", "H0", "Qmax",
-                 "Tprom_DGF", "Tmax_DGF", "Tmin_DGF", "PR_DGF",
-                 "PR_MM"]
+datos.columns = ["SL", "SCA", "MELT", "H0", "PR_DGF", "PR_MM", "Qmax", "T",
+                 "Tmax", "Tmin"]
 datos = np.round(datos, 1)
+datos = datos["2013-08-03":"2013-08-16"]
 
 # %%
 # =============================================================================
@@ -450,11 +478,13 @@ ax1.legend(frameon=False, fontsize=12, loc='upper right')
 
 
 # dtFmt =  # define the formatting
-ax[1].xaxis.set_major_formatter(mpl.dates.DateFormatter('\n%b-%d'))
+ax[1].xaxis.set_major_formatter(mpl.dates.DateFormatter('\n\n%b-%d'))
 ax[1].xaxis.set_major_locator(mpl.dates.DayLocator(interval=1))
 
 ax[1].xaxis.set_minor_formatter(mpl.dates.DateFormatter('%H:%M'))
-ax[1].xaxis.set_minor_locator(mpl.dates.HourLocator(byhour=[0, 6, 12, 18]))
+ax[1].xaxis.set_minor_locator(
+    mpl.dates.HourLocator(byhour=np.arange(0, 24, 3)))
+ax[1].tick_params(axis='x', which='minor', rotation=45)
 
 for maj in ax[1].xaxis.get_major_ticks():
     maj.label.set_fontsize(18)
@@ -464,6 +494,7 @@ for m in ax[1].xaxis.get_minor_ticks():
 
 ax[1].set_xlim([15928.4, 15931])
 
+tau_peak = int((q.idxmax()-pr[pr > 0].index[0]).seconds/60/60)
 
 textstr = '\n'.join([r'$\tau_{peak}: 12h$',
                      r'$Rain Duration: 25h$',
@@ -487,3 +518,16 @@ ax[0].text(0.886, 1.2, textstr2, transform=ax[0].transAxes, fontsize=12,
 
 plt.savefig('plots/caseofstudy_Aug2013/flood_study.pdf', dpi=150,
             bbox_inches='tight')
+
+# %%
+
+fig = plt.figure(figsize=(10, 10))
+ax = fig.add_subplot(111, projection=ccrs.PlateCarree())
+ax.set_extent([-72.3, -69.5, -32.4, -37])
+ax.coastlines()
+ax.add_feature(cf.BORDERS, rasterized=True)
+ax.add_feature(cf.OCEAN, rasterized=True)
+ax.add_feature(cf.LAND, rasterized=True)
+polygons.plot(polygons.gauge_name, ax=ax, transform=ccrs.PlateCarree(),
+              cmap='tab20')
+polygons.boundary.plot(ax=ax, lw=1, color='k', transform=ccrs.PlateCarree())

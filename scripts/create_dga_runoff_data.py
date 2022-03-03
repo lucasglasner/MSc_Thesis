@@ -21,8 +21,7 @@ sys.path.append("functions.py")
 # %%
 # basins = glob('datos/estaciones/dga/*[!.csv]')
 # basins = [b.split("/")[-1] for b in basins]
-basins = ["ColoradoEnJuntaConPalos", "LircayEnPuenteLasRastras",
-          "TinguiriricaBajoLosBriones"]
+basins = ["RioColoradoEnJuntaConPalos"]
 
 
 # corregir_qintdga('datos/estaciones/dga/'+basins[0]+"/"+"1984.xlsx","1984")
