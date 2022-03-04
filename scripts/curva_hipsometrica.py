@@ -16,23 +16,19 @@ import numpy as np
 import pandas as pd
 
 
-basins = ["Rio Aconcagua En Chacabuquito",
-          "Rio Achibueno En La Recova",
-          "Rio Ancoa En El Morro",
-          "RioCachapoal En Pte Termas De Cauquenes",
-          "Rio Claro En El Valle",
-          "Rio Claro En Hacienda Las Nieves",
-          "Rio Claro En Rauquen",
-          "Rio Longavi En El Castillo",
-          "Rio Maipo En El Manzano",
-          "Rio Mapocho En Los Almendros",
-          "Rio Colorado En Junta Con Palos",
-          "Rio Palos En Junta Con Colorado",
-          "Rio Melado En El Salto",
-          "Rio Perquilauquen En San Manuel",
-          "Rio Tinguiririca Bajo Los Briones",
-          "Rio Uble En San Fabian N 2"]
+# basins = ['Rio Aconcagua En Chacabuquito', 'Rio Ancoa En El Morro',
+#           'Rio Cachapoal En Pte Termas De Cauquenes',
+#           'Rio Claro En El Valle', 'Rio Claro En Hacienda Las Nieves',
+#           'Rio Mapocho En Los Almendros', 'Rio Melado En El Salto',
+#           'Rio Perquilauquen En San Manuel', 'Rio Uble En San Fabian N 2',
+#           'Rio Tinguiririca Bajo Los Briones', 'Rio Achibueno En La Recova',
+#           'Rio Maipo En El Manzano', 'Rio Longavi En El Castillo',
+#           'Rio Teno Despues De Junta Con Claro',
+#           'Rio Palos En Junta Con Colorado',
+#           'Rio Colorado En Junta Con Palos', 'Rio Upeo En Upeo',
+#           'Rio Lircay En Puente Las Rastras', 'Rio Claro En Camarico']
 
+basins = ['Rio Upeo En Upeo']
 # %%
 # =============================================================================
 # Inputs

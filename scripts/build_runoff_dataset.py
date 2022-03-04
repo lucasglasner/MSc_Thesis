@@ -15,6 +15,7 @@ import pandas as pd
 import geopandas as gpd
 from glob import glob
 import numpy as np
+import xarray as xr
 import matplotlib.pyplot as plt
 
 # %%
@@ -55,16 +56,18 @@ runoff_data.columns = ["Rio Achibueno En La Recova",
                        "Rio Aconcagua En Chacabuquito",
                        "Rio Ancoa En El Morro",
                        "Rio Cachapoal En Pte Termas De Cauquenes",
+                       "Rio Claro En Camarico",
                        "Rio Claro En El Valle",
                        "Rio Claro En Hacienda Las Nieves",
-                       "Rio Claro En Rauquen",
                        "Rio Colorado En Junta Con Palos",
+                       "Rio Lircay En Puente Las Rastras",
                        "Rio Longavi En El Castillo",
                        "Rio Mapocho En Los Almendros",
                        "Rio Melado En El Salto",
                        "Rio Palos En Junta Con Colorado",
                        "Rio Perquilauquen En San Manuel",
                        "Rio Teno Despues De Junta Con Claro",
+                       "Rio Upeo En Upeo",
                        "Rio Uble En San Fabian N 2",
                        "Rio Tinguiririca Bajo Los Briones",
                        "Rio Maipo En El Manzano"]
@@ -73,12 +76,20 @@ runoff_data = runoff_data[basin_attributes.gauge_name]
 # runoff_data.columns = basin_attributes.index
 runoff_data.to_csv('datos/runoff_gauges_dataset.csv')
 
-# #%%
-# polygons = gpd.read_file('datos/vector/catchments_camels_cl_v1.3.shp',index_col=0)
-# polygons.index = polygons.gauge_id
-# polygons = polygons.loc[basin_attributes.index]
+# %%
+polygons = gpd.read_file(
+    'datos/vector/catchments_camels_cl_v1.3.shp', index_col=0)
+polygons.index = polygons.gauge_id
+polygons = polygons.loc[basin_attributes.index]
 
-# #%%
+# %%
+swe = xr.open_dataset('datos/ANDES_SWE_Cortes/regrid_cr2met/ANDES_SWE_2005.nc')
+swe = swe.SWE.max(dim='time')
 
-# polygons.plot("gauge_name")
+
+fig = plt.figure()
+ax = fig.add_subplot(111)
+swe.plot(ax=ax)
+
+polygons.plot("gauge_name", legend=True, legend_kwds={'loc': (1, 0)}, ax=ax)
 # polygons.boundary.plot()

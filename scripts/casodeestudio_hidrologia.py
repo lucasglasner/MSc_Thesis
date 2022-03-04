@@ -10,6 +10,7 @@ Created on Mon Feb 28 13:27:42 2022
 # =============================================================================
 """
 
+from functions import add_labels
 from glob import glob
 from matplotlib.ticker import FormatStrFormatter
 import matplotlib as mpl
@@ -34,12 +35,12 @@ def smooth(x, window_len=11, window='hanning'):
     """smooth the data using a window with requested size.
 
     This method is based on the convolution of a scaled window with the signal.
-    The signal is prepared by introducing reflected copies of the signal 
+    The signal is prepared by introducing reflected copies of the signal
     (with the window size) in both ends so that transient parts are minimized
     in the begining and end part of the output signal.
 
     input:
-        x: the input signal 
+        x: the input signal
         window_len: the dimension of the smoothing window; should be an odd integer
         window: the type of window from 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'
             flat window will produce a moving average smoothing.
@@ -53,7 +54,7 @@ def smooth(x, window_len=11, window='hanning'):
     x=sin(t)+randn(len(t))*0.1
     y=smooth(x)
 
-    see also: 
+    see also:
 
     np.hanning, np.hamming, np.bartlett, np.blackman, np.convolve
     scipy.signal.lfilter
@@ -90,8 +91,8 @@ def minimum_filter(ts, **kwargs):
 
     The base flow is set to the minimum observed flow.
 
-    :param ts: 
-    :return: 
+    :param ts:
+    :return:
     """
     minimum = min(ts)
     out_values = minimum * np.ones(len(ts))
@@ -108,13 +109,13 @@ def fixed_interval_filter(ts, size):
     The USGS HYSEP fixed interval method as described in `Sloto & Crouse, 1996`_.
 
     .. _Slot & Crouse, 1996:
-        Sloto, Ronald A., and Michele Y. Crouse. “HYSEP: A Computer Program for Streamflow Hydrograph Separation and 
-        Analysis.” USGS Numbered Series. Water-Resources Investigations Report. Geological Survey (U.S.), 1996. 
+        Sloto, Ronald A., and Michele Y. Crouse. “HYSEP: A Computer Program for Streamflow Hydrograph Separation and
+        Analysis.” USGS Numbered Series. Water-Resources Investigations Report. Geological Survey (U.S.), 1996.
         http://pubs.er.usgs.gov/publication/wri964040.
 
-    :param size: 
-    :param ts: 
-    :return: 
+    :param size:
+    :param ts:
+    :return:
     """
     intervals = np.arange(len(ts)) // size
     baseflow = pd.Series(data=ts.groupby(
@@ -136,13 +137,13 @@ def sliding_interval_filter(ts, size):
         over a window of size `size`
 
     .. _Slot & Crouse, 1996:
-        Sloto, Ronald A., and Michele Y. Crouse. “HYSEP: A Computer Program for Streamflow Hydrograph Separation and 
-        Analysis.” USGS Numbered Series. Water-Resources Investigations Report. Geological Survey (U.S.), 1996. 
+        Sloto, Ronald A., and Michele Y. Crouse. “HYSEP: A Computer Program for Streamflow Hydrograph Separation and
+        Analysis.” USGS Numbered Series. Water-Resources Investigations Report. Geological Survey (U.S.), 1996.
         http://pubs.er.usgs.gov/publication/wri964040.
 
-    :param size: 
-    :param ts: 
-    :return: 
+    :param size:
+    :param ts:
+    :return:
     """
     # TODO ckeck the presence of nodata
     if (ts.isnull()).any():
@@ -181,19 +182,19 @@ def local_minimum_filter(ts, size):
         The USGS HYSEP local minimum method as described in `Sloto & Crouse, 1996`_.
 
     .. _Slot & Crouse, 1996:
-        Sloto, Ronald A., and Michele Y. Crouse. “HYSEP: A Computer Program for Streamflow Hydrograph Separation and 
-        Analysis.” USGS Numbered Series. Water-Resources Investigations Report. Geological Survey (U.S.), 1996. 
+        Sloto, Ronald A., and Michele Y. Crouse. “HYSEP: A Computer Program for Streamflow Hydrograph Separation and
+        Analysis.” USGS Numbered Series. Water-Resources Investigations Report. Geological Survey (U.S.), 1996.
         http://pubs.er.usgs.gov/publication/wri964040.
 
-    :param size: 
-    :param ts: 
-    :return: 
+    :param size:
+    :param ts:
+    :return:
     """
 
     origin = int(size) / 2
     baseflow_min = pd.Series(generic_filter(
         ts, _local_minimum, footprint=np.ones(size)), index=ts.index)
-    baseflow = baseflow_min.interpolate(method='linear')
+    baseflow = baseflow_min.interpolate(method='cubicspline')
     # interpolation between values may lead to baseflow > streamflow
     errors = (baseflow > ts)
     while errors.any():
@@ -216,7 +217,7 @@ def local_minimum_filter(ts, size):
 # =============================================================================
 # big time interval and graph time interval
 # =============================================================================
-interval = slice(datetime.datetime(2013, 8, 4),
+interval = slice(datetime.datetime(2013, 8, 1),
                  datetime.datetime(2013, 8, 16))
 interval2 = slice(datetime.datetime(2013, 8, 11),
                   datetime.datetime(2013, 8, 14))
@@ -224,80 +225,7 @@ interval2 = slice(datetime.datetime(2013, 8, 11),
 
 # %%
 # =============================================================================
-# SNOW LIMIT AND SNOW COVER
-# =============================================================================
-
-SL_mm = pd.read_csv('datos/snowlimits_maipomanzano.csv',
-                    index_col=0).squeeze()
-SL_mm.index = pd.to_datetime(SL_mm.index)+datetime.timedelta(hours=12)
-SL_mm = SL_mm.dropna(how='all')[interval]
-
-for i in range(3):
-    y = SL_mm.iloc[:, i].dropna()
-    x = SL_mm["IANIGLA"].dropna().reindex(y.index)
-    m = st.linregress(x, y)
-    for j in range(len(SL_mm)):
-        if np.isnan(SL_mm.iloc[j, i]):
-            SL_mm.iloc[j, i] = m.slope * \
-                SL_mm["IANIGLA"].values[j]+m.intercept
-
-SL_mm = SL_mm["MODIS_H50"]
-
-SCA = pd.read_csv('datos/snowcovers_maipomanzano.csv',
-                  index_col=0)['IANIGLA']
-SCA.index = pd.to_datetime(SCA.index)
-SCA = SCA[interval]
-
-# %%
-# =============================================================================
-# DGF ROOF STATIION DATA (SANTIAGO CITY)
-# =============================================================================
-datos_dgf = pd.read_csv(
-    "datos/estaciones/dgf/DATOSUTC_2004-2019.csv", index_col=0)
-datos_dgf.index = pd.to_datetime(
-    datos_dgf.index.values)-datetime.timedelta(hours=4)
-datos_dgf = datos_dgf[interval]
-
-# %%
-# =============================================================================
-# CR2MET PRECIPITATION BASIN WIDE MEAN
-# =============================================================================
-
-pr_cr2met = pd.read_csv("datos/cr2met/pr_RioMaipoEnElManzano.csv", index_col=0)
-pr_cr2met.index = pd.to_datetime(
-    pr_cr2met["date"])+datetime.timedelta(hours=12)
-pr_cr2met.drop("date", axis=1, inplace=True)
-pr_cr2met = pr_cr2met.squeeze()[interval]
-
-
-# %%
-# =============================================================================
-# hypsometric curves
-# =============================================================================
-
-
-hypso = pd.read_csv(
-    'datos/topography/basins/hypso/RioMaipoEnElManzano_hypso.csv')
-area = hypso.Area_km2.values[-1]
-
-int_func = interp1d(hypso.iloc[:, 0], hypso.iloc[:, 1])
-
-# %%
-# =============================================================================
-# ZERRO DEGREE LEVEL AND PLUVIAL AREA
-# =============================================================================
-
-H0_mm = pd.read_csv('datos/stodomingo/isoterma0.csv',
-                    index_col=0).squeeze()
-H0_mm.index = pd.to_datetime(H0_mm.index)-datetime.timedelta(hours=4)
-H0_mm = H0_mm[interval]
-
-pluv_area = H0_mm.map(lambda x: int_func(x))*area
-
-
-# %%
-# =============================================================================
-# PRECIPITATION IN MAIPO EN EL MANZANO BASIN OUTLET
+# PRECIPITATION ON BASIN OUTLETS
 # =============================================================================
 
 
@@ -307,227 +235,438 @@ pr_mm = pr_mm['Valor'].drop_duplicates()
 pr_mm = pr_mm.reindex(pd.date_range(interval.start,
                                     interval.stop, freq='h')).fillna(0)
 
+pr_teno = pd.read_csv(
+    'datos/estaciones/pr_RioTenoDespuesDeJuntaConClaro_2013-08.csv')
+pr_teno.index = pd.to_datetime(pr_teno.Fecha)
+pr_teno = pr_teno['Valor'].reindex(pr_mm.index)[interval]
+
+
+pr_uble = pd.read_csv('datos/estaciones/pr_RioUbleEnSanFabian_2013-08.csv')
+pr_uble.index = pd.to_datetime(pr_uble.Fecha)
+pr_uble = pr_uble['Valor'].reindex(pr_mm.index)[interval]
+
+
+pr = pd.concat([pr_mm, pr_teno, pr_uble], axis=1)
+pr.columns = columns = ['Rio Maipo En El Manzano',
+                        'Rio Teno Despues De Junta Con Claro',
+                        'Rio Uble En San Fabian N 2']
+del pr_mm, pr_teno, pr_uble
+
+# %%
+# =============================================================================
+# hypsometric curves
+# =============================================================================
+
+
+hypso0 = pd.read_csv(
+    'datos/topography/basins/hypso/RioMaipoEnElManzano_hypso.csv')
+hypso1 = pd.read_csv(
+    'datos/topography/basins/hypso/RioTenoDespuesDeJuntaConClaro_hypso.csv')
+hypso2 = pd.read_csv(
+    'datos/topography/basins/hypso/RioUbleEnSanFabianN2_hypso.csv')
+
+
+hypso = pd.concat([hypso0, hypso1, hypso2], keys=pr.columns, axis=1)
+
+areas = [hypso[b].Area_km2.max() for b in pr.columns]
+areas = pd.Series(areas, index=pr.columns)
+int_func = [interp1d(hypso[b].height, hypso[b].fArea) for b in pr.columns]
+
+# %%
+# =============================================================================
+# ZERO DEGREE LEVEL AND PLUVIAL AREA
+# =============================================================================
+
+H0_mm = pd.read_csv('datos/stodomingo/isoterma0.csv',
+                    index_col=0).squeeze()
+H0_mm.index = pd.to_datetime(H0_mm.index)-datetime.timedelta(hours=4)
+H0_mm = H0_mm[interval].reindex(pr.index).interpolate('cubicspline')
+
+pluv_area = [int_func[i](H0_mm-300)*areas[i] for i in range(3)]
+nonpluv_area = [(1-int_func[i](H0_mm-300))*areas[i] for i in range(3)]
+pluv_area = pd.DataFrame(pluv_area, columns=pr.index, index=pr.columns).T
+nonpluv_area = pd.DataFrame(nonpluv_area, columns=pr.index, index=pr.columns).T
+
+# %%
+# =============================================================================
+# SNOW COVER
+# =============================================================================
+
+
+SCA0 = pd.read_csv(
+    'datos/ianigla/RioMaipoEnElManzano_SCA_s_comp.filtro_MA.3días.csv',
+    index_col=0)
+SCA1 = pd.read_csv(
+    'datos/ianigla/RioTenoDespuesDeJuntaConClaro_SCA_s_comp.filtro_MA.3días.csv',
+    index_col=0)
+SCA2 = pd.read_csv(
+    'datos/ianigla/RioUbleEnSanFabianN2_SCA_s_comp.filtro_MA.3días.csv.csv',
+    index_col=0)
+
+SCA0.index = pd.to_datetime(SCA0.index)
+SCA1.index = pd.to_datetime(SCA1.index)
+SCA2.index = pd.to_datetime(SCA2.index)
+
+SCA = pd.concat([s.iloc[:, 1] for s in [SCA0, SCA1, SCA2]], axis=1)[interval]
+SCA.columns = pr.columns
+SCA = SCA.reindex(pr.index).interpolate('cubicspline')/100
+
+snow_area = [SCA[b]*areas.loc[b] for b in pr.columns]
+snow_area = pd.concat(snow_area, axis=1)
+
+# %%
+# =============================================================================
+# ROS AREA
+# =============================================================================
+
+ros_area = np.clip(snow_area-nonpluv_area, 0, 7e3)
 
 # %%
 # =============================================================================
 # RUNOFF DATA IN DIFFERENT BASINS
 # =============================================================================
-qinst_mm = pd.read_csv("datos/estaciones/qinst_RioMaipoEnElManzano.csv",
-                       index_col=0)
-qinst_mm.index = pd.to_datetime(qinst_mm.index)
-qinst_mm = qinst_mm.squeeze()[interval]
 
-runoff = pd.read_csv('datos/runoff_gauges_dataset.csv', index_col=0)
-runoff.index = pd.to_datetime(runoff.index)
-runoff = runoff[interval]
+
+basin_attributes = pd.read_csv('datos/basins_attributes.csv', index_col=1)
+basin_attributes = basin_attributes.sort_values(
+    by='gauge_name', ascending=False)
+basin_attributes = basin_attributes.loc[pr.columns]
+runoff2 = pd.read_csv('datos/runoff_gauges_dataset.csv', index_col=0)
+runoff2.index = pd.to_datetime(runoff2.index)
+runoff2 = runoff2[pr.columns]
+runoff = runoff2[interval]
+runoff = runoff.T.dropna(how='all').T
+
+
+baseflows = [sliding_interval_filter(runoff[b], 100)[0] for b in pr.columns]
+baseflows = pd.concat(baseflows, axis=1)
+
 
 # %%
 # =============================================================================
-# BASIN POLYGONS
+# RASTER DATA, SWE, TOPOGRAPHY AND PLUVIAL AREA MASKS
 # =============================================================================
-paths = glob('datos/vector/basins/*.shp')
-polygons = pd.concat([gpd.read_file(p) for p in paths])
 
-
-# %%
-# =============================================================================
-# RASTER DATA, SWE AND TOPOGRAPHY
-# =============================================================================
-dem = xr.open_dataset(
-    'datos/topography/basins/RioMaipoEnElManzano_Cortes.nc').Band1
-SWE = xr.open_dataset(
+SWE0 = xr.open_dataset(
     'datos/ANDES_SWE_Cortes/maipomanzano/ANDES_SWE_WY2014.nc')
-SWE = SWE.SWE.sel(time=interval)
-dSWE = SWE.diff('time')
+SWE1 = xr.open_dataset('datos/ANDES_SWE_Cortes/ANDES_SWE_WY2014_Teno.nc')
+SWE2 = xr.open_dataset('datos/ANDES_SWE_Cortes/ANDES_SWE_WY2014_Uble.nc')
 
-masks = []
-# Pluvial area masks
-pluv_area_daily = pluv_area.resample('d').mean()
-for i, pa in enumerate(pluv_area_daily):
-    if np.isnan(pa):
-        mask = dem*0
-        masks.append(mask)
-    else:
-        mask = xr.where((dem < pa), 1, 0)
-        masks.append(mask)
+SWE = [SWE0.SWE.sel(time=interval),
+       SWE1.SWE.sel(time=interval),
+       SWE2.SWE.sel(time=interval)]
 
-masks = xr.concat(masks, pluv_area_daily.index).rename(
-    {'timestamp_UTC': 'time'})
+del SWE0, SWE1, SWE2
+
+dSWE = [swe.diff('time') for swe in SWE]
+
+# dem0 = xr.open_dataset('datos/topography/basins/RioMaipoEnElManzano.nc')
+# dem1 = xr.open_dataset(
+#     'datos/topography/basins/RioTenoDespuesDeJuntaConClaro.nc')
+# dem2 = xr.open_dataset('datos/topography/basins/RioUbleEnSanFabianN2.nc')
+
+# dem = [dem0.Band1, dem1.Band1, dem2.Band1]
+# del dem0, dem1, dem2
+
+# new_dem = []
+# for d, swe in zip(dem, SWE):
+#     nd = d.reindex({'lat': swe.lat, 'lon': swe.lon}, method='nearest')
+#     new_dem.append(nd)
+# del dem
+# dem = new_dem
+
+melt = [dswe.where(dswe < 0).mean(dim=['lat', 'lon']).to_series()
+        for dswe in dSWE]
+melt = pd.concat(melt, axis=1)*-1
+melt.columns = pr.columns
+melt = melt.reindex(pr.index).interpolate(method='cubicspline')/24
+# %%
+plt.rc("font", size=18)
+fig, ax = plt.subplots(2, 3, figsize=(14, 4), sharex='col',
+                       gridspec_kw={'height_ratios': [1, 2]},
+                       sharey='row')
+titles = ['Rio Maipo\nEn El Manzano',
+          'Rio Teno Despues\nDe Junta Con Claro',
+          'Rio Uble En\nSan Fabian N 2']
+for i, axis in enumerate(ax[0, :]):
+    axis.bar(pr.index-datetime.timedelta(hours=1),
+             pr.iloc[:, i], color='cadetblue',
+             width=0.05, align='edge', label='Precipitation',
+             edgecolor='k', linewidth=0.0, zorder=1)
+    axis.bar(melt.index-datetime.timedelta(hours=1),
+             melt.iloc[:, i], edgecolor='k', linewidth=0.0, color='darkviolet',
+             width=0.05, align='edge', label='Snowmelt',
+             bottom=pr.iloc[:, i].fillna(0), zorder=2)
+    axis.set_yticks(np.arange(0, 6+1.5, 1.5))
+    axis.set_yticklabels([0, "", 3, "", 6])
+
+    axis.grid(True, which='major', ls=":", zorder=0)
+    axis.set_title(titles[i], loc='left', pad=30)
+    # axis.set_ylim(0,6)
+
+
+for i, axis in enumerate(ax[1, :]):
+    axis.plot(runoff.index,
+              runoff.iloc[:, i]-baseflows.iloc[:, i],
+              color='darkblue')
+
+    axis1 = axis.twinx()
+    axis1.set_ylim(0, 1)
+    axis1.set_yticks([0, 0.25, 0.5, 0.75, 1])
+
+    axis1.plot(pr.index, pluv_area.iloc[:, i]/areas.iloc[i],
+               color='tab:red',
+               ls="--", alpha=0.2)
+    axis1.plot(pr.index, pluv_area.where(pr > 0).iloc[:, i]/areas.iloc[i],
+               color='tab:red')
+    ros = ros_area.iloc[:, i]
+    ros = ros.where(ros > 0)
+    ros = ros.where(pr.iloc[:, i] > 0)
+    axis1.plot(pr.index,
+               ros/areas.iloc[i],
+               color='tab:green', label='ROS Area')
+
+    if i < 2:
+        axis1.set_yticklabels([""]*5)
+    axis.grid(axis='x', which='major', ls=":")
+    axis.set_yticks([0, 25, 50, 75, 100])
+    axis.xaxis.set_major_formatter(mpl.dates.DateFormatter('\n\n%d'))
+    axis.xaxis.set_major_locator(mpl.dates.DayLocator(interval=1))
+
+    axis.xaxis.set_minor_formatter(mpl.dates.DateFormatter('%H:%M'))
+    axis.xaxis.set_minor_locator(
+        mpl.dates.HourLocator(byhour=np.arange(0, 24, 6)))
+    axis.tick_params(axis='x', which='minor', rotation=45)
+
+    for maj in axis.xaxis.get_major_ticks():
+        maj.label.set_fontsize(18)
+    for m in axis.xaxis.get_minor_ticks():
+        m.label.set_fontsize(12)
+    axis.set_xlim([15927.7, 15931])
+ax[-1, 0].set_ylabel('$(m^3/s)$')
+ax[0, 0].set_ylabel('$(mm/h)$')
+
+box = ax[1, 0].get_position()
+fig.text(box.xmin*1.15, box.ymin*-1.15,
+         '\nAug\n2013', ha='center', va='center')
+
+plt.savefig('plots/caseofstudy_Aug2013/flood_study.pdf',
+            dpi=150, bbox_inches='tight')
+# ax[1, 1].plot(pr.index, (q1-baseflow1)[interval2], color='darkblue')
+# ax[1, 2].plot(pr.index, (q2-baseflow2)[interval2], color='darkblue')
+# # ax1 = ax[1].twinx()
+# # ax1.set_ylim(0, 1)
+# # ax1.set_yticks([0, 0.25, 0.5, 0.75, 1])
+# # ax1.plot(pr.index, ap/area, color='tab:red', alpha=0.2, ls="--")
+# # ax1.plot(pr.index, ap.where(pr > 0)/area, color='tab:red',
+# #          label='Pluvial Area')
+# # ax1.plot(pr.index, ros_area.where(ros_area > 0).where(pr > 0)/area,
+# #          color='purple', label='ROS Area')
+# # ax1.set_ylabel('Fraction of\ntotal Area (%)')
+# # ax1.legend(frameon=False, fontsize=12, loc='upper right')
+# # # ax1.set_yticklabels(ax1.get_yticks()*100)
+# # # ax1.yaxis.set_major_formatter(FormatStrFormatter('%i'))
+# # # ax[1].xaxis.set_major_formatter(
+# # #       mpl.dates.ConciseDateFormatter(ax[1].xaxis.get_major_locator()))
+
+
+# %%
+# SWE = xr.open_dataset(
+#     'datos/ANDES_SWE_Cortes/maipomanzano/ANDES_SWE_WY2014.nc')
+# SWE = SWE.SWE.sel(time=interval)
+# dSWE = SWE.diff('time')
+
+
+# masks = []
+# # Pluvial area masks
+# pluv_area_daily = pluv_area.resample('d').mean()
+# for i, pa in enumerate(pluv_area_daily):
+#     if np.isnan(pa):
+#         mask = dem*0
+#         masks.append(mask)
+#     else:
+#         mask = xr.where((dem < pa), 1, 0)
+#         masks.append(mask)
+
+# masks = xr.concat(masks, pluv_area_daily.index).rename(
+#     {'timestamp_UTC': 'time'})
 
 # %%
 # =============================================================================
 # Build SWE loss/gain series
 # =============================================================================
-parea = (6.4e6)**2*np.cos(np.deg2rad(SWE.lat.mean()))
-parea = parea*np.deg2rad(0.001)*np.deg2rad(0.001)
-parea = parea.item()
+# parea = (6.4e6)**2*np.cos(np.deg2rad(SWE.lat.mean()))
+# parea = parea*np.deg2rad(0.001)*np.deg2rad(0.001)
+# parea = parea.item()
 
-melt = dSWE.where(dSWE < 0).mean(dim=['lat', 'lon']).to_series()
-gain = dSWE[:-1, :, :].where(masks[1:, :, :])
-gain = gain.where(gain > 0).mean(dim=['lat', 'lon']).to_series()
-
-# %%
-# =============================================================================
-# Build table for document
-# =============================================================================
-datos = []
-for dat in [SL_mm, SCA, melt*-1, H0_mm,
-            datos_dgf.iloc[:, 9].resample('d').sum(),
-            pr_mm.resample('d').sum(),
-            qinst_mm.resample('d').max(),
-            datos_dgf.iloc[:, 5].resample('d').mean(),
-            datos_dgf.iloc[:, 5].resample('d').max(),
-            datos_dgf.iloc[:, 5].resample('d').min()]:
-    datos.append(dat[interval])
-
-datos = pd.concat(datos, axis=1)
-datos = datos.resample('d').mean().iloc[:-1, :]
-datos.columns = ["SL", "SCA", "MELT", "H0", "PR_DGF", "PR_MM", "Qmax", "T",
-                 "Tmax", "Tmin"]
-datos = np.round(datos, 1)
-datos = datos["2013-08-03":"2013-08-16"]
+# melt = dSWE.where(dSWE < 0).mean(dim=['lat', 'lon']).to_series()
+# gain = dSWE[:-1, :, :].where(masks[1:, :, :])
+# gain = gain.where(gain > 0).mean(dim=['lat', 'lon']).to_series()
 
 # %%
-# =============================================================================
-# flood data
-# =============================================================================
+# # =============================================================================
+# # Build table for document
+# # =============================================================================
+# datos = []
+# for dat in [SL_mm, SCA, melt*-1, H0_mm,
+#             datos_dgf.iloc[:, 9].resample('d').sum(),
+#             pr_mm.resample('d').sum(),
+#             qinst_mm.resample('d').max(),
+#             datos_dgf.iloc[:, 5].resample('d').mean(),
+#             datos_dgf.iloc[:, 5].resample('d').max(),
+#             datos_dgf.iloc[:, 5].resample('d').min()]:
+#     datos.append(dat[interval])
+
+# datos = pd.concat(datos, axis=1)
+# datos = datos.resample('d').mean().iloc[:-1, :]
+# datos.columns = ["SL", "SCA", "MELT", "H0", "PR_DGF", "PR_MM", "Qmax", "T",
+#                  "Tmax", "Tmin"]
+# datos = np.round(datos, 1)
+# datos = datos["2013-08-03":"2013-08-16"]
+
+# # %%
+# # =============================================================================
+# # flood data
+# # =============================================================================
 
 
-pr = pr_mm[interval]
-q = qinst_mm[interval]
-ap = pluv_area.reindex(q.index).interpolate(method='cubicspline')
+# pr = pr_mm
+# q = qinst_mm
+# ap = pluv_area.reindex(q.index).interpolate(method='cubicspline')
+
+# q1 = runoff['Rio Teno Despues De Junta Con Claro']
+# q2 = runoff['Rio Uble En San Fabian N 2']
+
+# snow_area = SCA.reindex(pluv_area.index, method='nearest')/100*area
+# snow_area = snow_area.reindex(q.index).interpolate(method='cubicspline')
+# ros_area = ap-(area-snow_area)
+# # ros_area = ros_area/ap
+# mlt = -1*melt.reindex(q.index).interpolate(method='cubicspline')/24
+# gin = gain.reindex(q.index).interpolate(method='cubicspline')/24
+
+# baseflow = sliding_interval_filter(q, 40)[0]
+# baseflow1 = sliding_interval_filter(q1, 40)[0]
+# baseflow2 = sliding_interval_filter(q2, 40)[0]
+
+# mask = pr > 0.01
 
 
-snow_area = SCA.reindex(pluv_area.index, method='nearest')/100*area
-snow_area = snow_area.reindex(q.index).interpolate(method='cubicspline')
-ros_area = ap-(area-snow_area)
-# ros_area = ros_area/ap
-mlt = -1*melt.reindex(q.index).interpolate(method='cubicspline')/24
-gin = gain.reindex(q.index).interpolate(method='cubicspline')/24
+# pr = pr[interval2]
+# q = q[interval2]
+# ap = ap[interval2]
+# snow_area = snow_area[interval2]
+# ros_area = ros_area[interval2]
+# mlt = mlt[interval2]
+# gin = gin[interval2]
+# baseflow = baseflow[interval2]
+# mask = mask[interval2]
 
-baseflow = sliding_interval_filter(q, 40)[0]
-
-mask = pr > 0.01
-
-
-pr = pr[interval2]
-q = q[interval2]
-ap = ap[interval2]
-snow_area = snow_area[interval2]
-ros_area = ros_area[interval2]
-mlt = mlt[interval2]
-gin = gin[interval2]
-baseflow = baseflow[interval2]
-mask = mask[interval2]
-
-rainpulse = slice('2013-08-11T14:00:00', '2013-08-12T15:00:00')
-floodpulse = slice('2013-08-11T18:00:00', '2013-08-13T09:00:00')
-
-# %%
-plt.rc("font", size=18)
-fig, ax = plt.subplots(2, 1, figsize=(9, 4), sharex=True)
-
-ax[0].bar(pr.index-datetime.timedelta(hours=1),
-          pr, width=0.037, edgecolor="k", color='cadetblue',
-          align='edge', label='Precipitation')
-ax[0].set_yticks([0, 1, 2, 3])
-ax[0].set_ylim(0, 4)
-# ax[0].bar(melt.index, melt*-1, edgecolor="k")
-ax[0].bar(pr.index-datetime.timedelta(hours=1),
-          mlt,
-          width=0.037, edgecolor='k', color='violet',
-          align='edge', label='Snowmelt', bottom=pr)
-# ax[0].bar(pr.index-datetime.timedelta(hours=1),
-#             gin,
-#             width=0.037, edgecolor='k', color='orange')
-ax[0].set_ylabel('(mm/h)')
-ax[0].legend(frameon=False, loc=(0.01, 0.95), ncol=2, fontsize=12)
-# ax[0].set_yscale("log")
+# rainpulse = slice('2013-08-11T14:00:00', '2013-08-12T15:00:00')
+# floodpulse = slice('2013-08-11T18:00:00', '2013-08-13T09:00:00')
 
 
-ax[0].spines['top'].set_visible(False)
-ax[0].spines['right'].set_visible(False)
+# # %%
+# plt.rc("font", size=18)
+# fig, ax = plt.subplots(2, 3, figsize=(14, 4), sharex=True,
+#                        gridspec_kw={'height_ratios': [1, 2]})
 
-ax[1].plot(pr.index, q-baseflow, label='Direct\nRunoff')
-ax[1].set_yticks([0, 7, 14, 21, 28])
-ax[1].set_ylim(0, 28)
-# ax[1].scatter((q-baseflow)[interval2][np.where((q-baseflow)[interval2]<1)[0][:2]].index,
-#               (q-baseflow)[interval2][np.where((q-baseflow)[interval2]<1)[0][:2]],
-#               ec="k",zorder=10)
-ax[1].axvspan("2013-08-11T18:00:00",
-              "2013-08-13T09:00:00", alpha=0.15, color='k')
-# ax[1].axvline("2013-08-11T14:00",color='k',alpha=0.5, ls=":")
-ax[1].set_ylabel('$(m^3/s)$')
-ax[1].legend(loc='upper left', frameon=False, fontsize=12)
+# ax[0, 0].bar(pr.index-datetime.timedelta(hours=1),
+#              pr, width=0.037, color='cadetblue',
+#              align='edge', label='Precipitation')
+# ax[0, 0].set_yticks([0, 1, 2, 3])
+# ax[0, 0].set_ylim(0, 3)
+# # # ax[0].bar(melt.index, melt*-1, edgecolor="k")
+# ax[0, 0].bar(pr.index-datetime.timedelta(hours=1),
+#              mlt,
+#              width=0.037, color='darkviolet',
+#              align='edge', label='Snowmelt', bottom=pr)
+# # # ax[0].bar(pr.index-datetime.timedelta(hours=1),
+# # #             gin,
+# # #             width=0.037, edgecolor='k', color='orange')
+# ax[0, 0].set_ylabel('(mm/h)')
+# ax[0, 0].legend(frameon=False, loc=(0.01, 0.95), ncol=2, fontsize=12)
+# # # ax[0].set_yscale("log")
+
+# titles = ['Rio Maipo\nEn El Manzano',
+#           'Rio Teno Despues\nDe Junta Con Claro',
+#           'Rio Uble En\nSan Fabian N 2']
+# for i, axis in enumerate(ax[0, :]):
+#     axis.spines['top'].set_visible(False)
+#     axis.spines['right'].set_visible(False)
+#     axis.set_title(titles[i], loc='left', pad=30)
+# ax[1, 0].plot(pr.index, q-baseflow, label='Direct\nRunoff', color='darkblue')
+# # ax[1, 0].set_yticks([0, 7, 14, 21, 28])
+# # ax[1, 0].set_ylim(0, 28)
+# # ax[1].scatter((q-baseflow)[interval2][np.where((q-baseflow)[interval2]<1)[0][:2]].index,
+# #               (q-baseflow)[interval2][np.where((q-baseflow)[interval2]<1)[0][:2]],
+# #               ec="k",zorder=10)
+# # ax[1, 0].axvspan("2013-08-11T18:00:00",
+# # "2013-08-13T09:00:00", alpha=0.15, color='k')
+# # ax[1].axvline("2013-08-11T14:00",color='k',alpha=0.5, ls=":")
+# ax[1, 0].set_ylabel('$(m^3/s)$')
+# ax[1, 0].legend(loc='upper right', frameon=False, fontsize=12)
 
 
-ax1 = ax[1].twinx()
-ax1.set_ylim(0, 1)
-ax1.set_yticks([0, 0.25, 0.5, 0.75, 1])
-ax1.plot(pr.index, ap/area, color='tab:red', alpha=0.2, ls="--")
-ax1.plot(pr.index, ap.where(pr > 0)/area, color='tab:red',
-         label='Pluvial Area')
-ax1.plot(pr.index, ros_area.where(ros_area > 0).where(pr > 0)/area,
-         color='purple', label='ROS Area')
-ax1.set_ylabel('Fraction of\ntotal Area (%)')
-ax1.legend(frameon=False, fontsize=12, loc='upper right')
-# ax1.set_yticklabels(ax1.get_yticks()*100)
-# ax1.yaxis.set_major_formatter(FormatStrFormatter('%i'))
-# ax[1].xaxis.set_major_formatter(
-#       mpl.dates.ConciseDateFormatter(ax[1].xaxis.get_major_locator()))
+# ax[1, 1].plot(pr.index, (q1-baseflow1)[interval2], color='darkblue')
+# ax[1, 2].plot(pr.index, (q2-baseflow2)[interval2], color='darkblue')
+# # ax1 = ax[1].twinx()
+# # ax1.set_ylim(0, 1)
+# # ax1.set_yticks([0, 0.25, 0.5, 0.75, 1])
+# # ax1.plot(pr.index, ap/area, color='tab:red', alpha=0.2, ls="--")
+# # ax1.plot(pr.index, ap.where(pr > 0)/area, color='tab:red',
+# #          label='Pluvial Area')
+# # ax1.plot(pr.index, ros_area.where(ros_area > 0).where(pr > 0)/area,
+# #          color='purple', label='ROS Area')
+# # ax1.set_ylabel('Fraction of\ntotal Area (%)')
+# # ax1.legend(frameon=False, fontsize=12, loc='upper right')
+# # # ax1.set_yticklabels(ax1.get_yticks()*100)
+# # # ax1.yaxis.set_major_formatter(FormatStrFormatter('%i'))
+# # # ax[1].xaxis.set_major_formatter(
+# # #       mpl.dates.ConciseDateFormatter(ax[1].xaxis.get_major_locator()))
 
 
-# dtFmt =  # define the formatting
-ax[1].xaxis.set_major_formatter(mpl.dates.DateFormatter('\n\n%b-%d'))
-ax[1].xaxis.set_major_locator(mpl.dates.DayLocator(interval=1))
+# # dtFmt =  # define the formatting
+# for axis in ax[1, :]:
+#     axis.xaxis.set_major_formatter(mpl.dates.DateFormatter('\n\n%d'))
+#     axis.xaxis.set_major_locator(mpl.dates.DayLocator(interval=1))
 
-ax[1].xaxis.set_minor_formatter(mpl.dates.DateFormatter('%H:%M'))
-ax[1].xaxis.set_minor_locator(
-    mpl.dates.HourLocator(byhour=np.arange(0, 24, 3)))
-ax[1].tick_params(axis='x', which='minor', rotation=45)
+#     axis.xaxis.set_minor_formatter(mpl.dates.DateFormatter('%H:%M'))
+#     axis.xaxis.set_minor_locator(
+#         mpl.dates.HourLocator(byhour=np.arange(0, 24, 6)))
+#     axis.tick_params(axis='x', which='minor', rotation=45)
 
-for maj in ax[1].xaxis.get_major_ticks():
-    maj.label.set_fontsize(18)
-for m in ax[1].xaxis.get_minor_ticks():
-    m.label.set_fontsize(12)
-# plt.show()
+#     for maj in axis.xaxis.get_major_ticks():
+#         maj.label.set_fontsize(18)
+#     for m in axis.xaxis.get_minor_ticks():
+#         m.label.set_fontsize(12)
 
-ax[1].set_xlim([15928.4, 15931])
+# box = ax[1, 0].get_position()
+# fig.text(box.xmin, box.ymin*-1.15, '2013-Aug', ha='center', va='center')
+# # plt.show()
 
-tau_peak = int((q.idxmax()-pr[pr > 0].index[0]).seconds/60/60)
+# # ax[1].set_xlim([15928.4, 15931])
 
-textstr = '\n'.join([r'$\tau_{peak}: 12h$',
-                     r'$Rain Duration: 25h$',
-                     r'$Q_{max}: 71.35 m^3\cdot s^{-1}$',
-                     r'$PR_{max}: 2.55 mm\cdot h^{-1}$',
-                     r'$PR_{cum}: 24mm$',
-                     r'$Snowmelt^{ROS}_{cum}: 1.57mm$'])
+# # tau_peak = int((q.idxmax()-pr[pr > 0].index[0]).seconds/60/60)
 
-textstr2 = '\n'.join([r'$FloodVolume: 1.67hm^3$',
-                     r'$RainVolume: 21.6hm^3$',
-                      r'$MeltedVolume: 1.32hm^3$'])
+# # textstr = '\n'.join([r'$\tau_{peak}: 12h$',
+# #                      r'$Rain Duration: 25h$',
+# #                      r'$Q_{max}: 71.35 m^3\cdot s^{-1}$',
+# #                      r'$PR_{max}: 2.55 mm\cdot h^{-1}$',
+# #                      r'$PR_{cum}: 24mm$',
+# #                      r'$Snowmelt^{ROS}_{cum}: 1.57mm$'])
 
-# these are matplotlib.patch.Patch properties
-props = dict(facecolor='teal', alpha=0.1, linewidth=0)
+# # textstr2 = '\n'.join([r'$FloodVolume: 1.67hm^3$',
+# #                      r'$RainVolume: 21.6hm^3$',
+# #                       r'$MeltedVolume: 1.32hm^3$'])
 
-# place a text box in upper left in axes coords
-ax[0].text(0.6, 1.2, textstr, transform=ax[0].transAxes, fontsize=12,
-           verticalalignment='top', bbox=props)
-ax[0].text(0.886, 1.2, textstr2, transform=ax[0].transAxes, fontsize=12,
-           verticalalignment='top', bbox=props)
+# # these are matplotlib.patch.Patch properties
+# # props = dict(facecolor='teal', alpha=0.1, linewidth=0)
 
-plt.savefig('plots/caseofstudy_Aug2013/flood_study.pdf', dpi=150,
-            bbox_inches='tight')
+# # place a text box in upper left in axes coords
+# # ax[0].text(0.6, 1.2, textstr, transform=ax[0].transAxes, fontsize=12,
+# #            verticalalignment='top', bbox=props)
+# # ax[0].text(0.886, 1.2, textstr2, transform=ax[0].transAxes, fontsize=12,
+# #            verticalalignment='top', bbox=props)
 
-# %%
-
-fig = plt.figure(figsize=(10, 10))
-ax = fig.add_subplot(111, projection=ccrs.PlateCarree())
-ax.set_extent([-72.3, -69.5, -32.4, -37])
-ax.coastlines()
-ax.add_feature(cf.BORDERS, rasterized=True)
-ax.add_feature(cf.OCEAN, rasterized=True)
-ax.add_feature(cf.LAND, rasterized=True)
-polygons.plot(polygons.gauge_name, ax=ax, transform=ccrs.PlateCarree(),
-              cmap='tab20')
-polygons.boundary.plot(ax=ax, lw=1, color='k', transform=ccrs.PlateCarree())
+# # plt.savefig('plots/caseofstudy_Aug2013/flood_study.pdf', dpi=150,
+# #             bbox_inches='tight')

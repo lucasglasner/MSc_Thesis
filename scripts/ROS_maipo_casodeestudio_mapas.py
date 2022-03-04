@@ -33,7 +33,10 @@ date = "2013-08-11"
 interval = datetime.datetime.strptime(date, '%Y-%m-%d')
 interval = slice(interval-datetime.timedelta(days=10),
                  interval+datetime.timedelta(days=10))
-basin = gpd.read_file('datos/vector/RioMaipoEnElManzano.shp')
+basins = pd.concat([gpd.read_file(p)
+                   for p in glob('datos/vector/basins/*.shp')])
+basins.index = basins.gauge_id
+maipobasin = gpd.read_file('datos/vector/basins/RioMaipoEnElManzano.shp')
 dem = xr.open_dataset('datos/topography/Andes_topo_005x005grad.nc').elevation
 
 
@@ -163,12 +166,12 @@ for i in range(len(days)):
                                    norm=mpl.colors.LogNorm(1, 1e2),
                                    transform=ccrs.PlateCarree())
     ax[0, i].set_title(titles[i], fontsize=14)
-    basin.boundary.plot(ax=ax[0, i], transform=ccrs.PlateCarree(),
-                        colors='forestgreen')
-    basin.boundary.plot(ax=ax[1, i], transform=ccrs.PlateCarree(),
-                        colors='darkblue')
-    basin.boundary.plot(ax=ax[2, i], transform=ccrs.PlateCarree(),
-                        colors='gold')
+    maipobasin.boundary.plot(ax=ax[0, i], transform=ccrs.PlateCarree(),
+                             colors='forestgreen')
+    maipobasin.boundary.plot(ax=ax[1, i], transform=ccrs.PlateCarree(),
+                             colors='darkblue')
+    maipobasin.boundary.plot(ax=ax[2, i], transform=ccrs.PlateCarree(),
+                             colors='gold')
 
 ax[0, 0].scatter([], [], s=100, marker='s', color='red', label='No Data')
 ax[0, 0].scatter([], [], s=100, marker='s',
@@ -212,9 +215,9 @@ for axis in ax.ravel():
     axis.add_feature(cf.BORDERS, ls=":", rasterized=True)
     axis.add_feature(cf.OCEAN, rasterized=True)
     axis.add_feature(cf.LAND, color='k', alpha=0.2, rasterized=True)
-    basin.boundary.plot(ax=axis, transform=ccrs.PlateCarree(),
-                        color='k', lw=0.5)
-
+    basins.boundary.plot(ax=axis, color='k', lw=0.5)
+    maipobasin.boundary.plot(ax=axis,
+                             color='tab:red', lw=0.5)
 for i in range(len(days)):
     pr_plot = ax[0, i].pcolormesh(lon2d, lat2d,
                                   PR.sel(time=days[i]),
@@ -222,12 +225,14 @@ for i in range(len(days)):
                                   cmap='Blues',
                                   norm=mpl.colors.Normalize(0, 60),
                                   transform=ccrs.PlateCarree())
-    h0_plot = ax[1, i].pcolormesh(lon2d, lat2d,
-                                  H0_ERA5.sel(time=days[i])-300,
-                                  rasterized=True,
-                                  cmap='summer',
-                                  norm=mpl.colors.Normalize(0, 3e3),
-                                  transform=ccrs.PlateCarree())
+    h0_plot = ax[1, i].contourf(lon2d, lat2d,
+                                np.clip(H0_ERA5.sel(
+                                    time=days[i])-300, 0, 4500),
+                                rasterized=True,
+                                cmap='summer',
+                                norm=mpl.colors.Normalize(0, 3e3),
+                                transform=ccrs.PlateCarree(),
+                                levels=np.arange(0, 5500, 500))
     # SWE_plot = ax[2, i].pcolormesh(lon2d, lat2d,
     #                                SWE.sel(time=days[i]),
     #                                rasterized=True,
@@ -243,16 +248,16 @@ for i in range(len(days)):
                                                                  vmax=40),
                                     transform=ccrs.PlateCarree())
     # ax[2, i].contour(lon2d, lat2d, dem,
-    #                  colors='tab:red',
-    #                  levels=[1500],
-    #                  linewidths=0.5)
+    #                   colors='tab:red',
+    #                   levels=[1500],
+    #                   linewidths=0.5)
     ax[1, i].scatter(np.where(ROS.sel(time=days[i]) == 1,
                               lon2d,
                               np.nan)[:-1, :-1]+0.05/2,
                      np.where(ROS.sel(time=days[i]) == 1,
                               lat2d,
                               np.nan)[:-1, :-1]+0.05/2,
-                     color='red',
+                     color='purple',
                      s=0.1,
                      rasterized=True)
     ax[0, i].set_title(titles[i], fontsize=14)
@@ -266,10 +271,15 @@ cax2 = fig.add_axes([box2.xmax*1.05, box2.ymin, 0.025, box2.ymax-box2.ymin])
 cax3 = fig.add_axes([box3.xmax*1.05, box3.ymin, 0.025, box3.ymax-box3.ymin])
 # cax4 = fig.add_axes([box4.xmax*1.05, box4.ymin, 0.025, box4.ymax-box4.ymin])
 
+
 fig.colorbar(pr_plot, cax=cax1, label='Precipitation\n$(mm/day)$')
-fig.colorbar(h0_plot, cax=cax2, label='Freezing Level\n$(m.a.g.l)$')
+norm = mpl.colors.Normalize(0, 3500)
+im = mpl.cm.ScalarMappable(norm=norm, cmap='summer')
+
+fig.colorbar(im, cax=cax2, label='Freezing Level\n$(m.a.g.l)$',
+             ticks=np.arange(0, 4000, 500), boundaries=np.linspace(0, 3500))
 # fig.colorbar(SWE_plot, cax=cax3, ticks=[1, 1e1, 1e2, 1e3],
-#              label='Snow Water\n Equivalent\n (mm)')
+#               label='Snow Water\n Equivalent\n (mm)')
 fig.colorbar(dSWE_plot, cax=cax3,
              label='Snow Water\nEquivalent Change\n$(mm/day)$')
 
@@ -303,13 +313,14 @@ fig, ax = plt.subplots(3, 6, subplot_kw={'projection': ccrs.PlateCarree()},
 plt.rc('font', size=18)
 lon2d, lat2d = np.meshgrid(ROS.lon, ROS.lat)
 for axis in ax.ravel():
-    axis.set_extent([-71.8, -69.6, -32.8, -37.3])
+    axis.set_extent([-72.1, -69.5, -32.4, -37])
     axis.coastlines()
     axis.add_feature(cf.BORDERS, ls=":", rasterized=True)
     # # axis.add_feature(cf.OCEAN, rasterized=True)
     axis.add_feature(cf.LAND, color='k', alpha=0.2, rasterized=True)
-    basin.boundary.plot(ax=axis, transform=ccrs.PlateCarree(),
-                        color='k', lw=0.5)
+    basins.boundary.plot(ax=axis, color='k', lw=0.5)
+    maipobasin.boundary.plot(ax=axis,
+                             color='tab:red', lw=0.5)
 
 for i in range(len(days)):
     pr_plot = ax[0, i].pcolormesh(lon2d, lat2d,
@@ -318,12 +329,14 @@ for i in range(len(days)):
                                   cmap='Blues',
                                   norm=mpl.colors.Normalize(0, 60),
                                   transform=ccrs.PlateCarree())
-    h0_plot = ax[1, i].pcolormesh(lon2d, lat2d,
-                                  H0_ERA5.sel(time=days[i])-300,
-                                  rasterized=True,
-                                  cmap='summer',
-                                  norm=mpl.colors.Normalize(0, 3e3),
-                                  transform=ccrs.PlateCarree())
+    h0_plot = ax[1, i].contourf(lon2d, lat2d,
+                                np.clip(H0_ERA5.sel(
+                                    time=days[i])-300, 0, 4500),
+                                rasterized=True,
+                                cmap='summer',
+                                norm=mpl.colors.Normalize(0, 3e3),
+                                transform=ccrs.PlateCarree(),
+                                levels=np.arange(0, 4000, 500))
     dSWE_plot = ax[2, i].pcolormesh(lon2d, lat2d,
                                     SWEdiff.sel(time=days[i]),
                                     rasterized=True,
@@ -348,7 +361,7 @@ for i in range(len(days)):
                      np.where(ROS.sel(time=days[i]) == 1,
                               lat2d,
                               np.nan)[:-1, :-1]+0.05/2,
-                     color='red',
+                     color='purple',
                      s=0.5,
                      rasterized=True)
     ax[0, i].set_title(titles[i], fontsize=14)
@@ -365,7 +378,8 @@ cax3 = fig.add_axes([box3.xmax*1.05, box3.ymin, 0.025, box3.ymax-box3.ymin])
 # cax4 = fig.add_axes([box4.xmax*1.05, box4.ymin, 0.025, box4.ymax-box4.ymin])
 
 fig.colorbar(pr_plot, cax=cax1, label='Precipitation\n$(mm/day)$')
-fig.colorbar(h0_plot, cax=cax2, label='Freezing Level\n$(m.a.g.l)$')
+fig.colorbar(im, cax=cax2, label='Freezing Level\n$(m.a.g.l)$',
+             ticks=np.arange(0, 4000, 500), boundaries=np.linspace(0, 3500))
 fig.colorbar(dSWE_plot, cax=cax3,
              label='Snow Water\nEquivalent Change\n$(mm/day)$')
 # fig.colorbar(SWE_plot, cax=cax4, ticks=[1, 1e1, 1e2, 1e3],

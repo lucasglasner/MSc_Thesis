@@ -24,7 +24,7 @@ import geopandas as gpd
 # Define domains
 # =============================================================================
 # domain0 = [-72, -69, -32.4, -37.3]
-domain0 = [-71.5, -69.5, -32.5, -37]
+domain0 = [-72.1, -69.5, -32.4, -37]
 domain1 = [-74, -68, -26, -38]
 domain2 = [-100, -60, -20, -50]
 
@@ -47,7 +47,7 @@ topo = topo.where(topo > 0).sel(lon=slice(360-120, 360-50), lat=slice(-5, -70))
 hrestopo = xr.open_dataset('datos/topography/Andes_topo_005x005grad.nc')
 hrestopo = hrestopo.where(hrestopo > 0).elevation
 
-paths = glob('datos/vector/Rio*.shp')
+paths = glob('datos/vector/basins/Rio*.shp')
 cuencas = []
 for path in paths:
     cuencas.append(gpd.read_file(path))
@@ -127,7 +127,7 @@ gl.xlocator = mpl.ticker.FixedLocator([-100, -80, -60, -40])
 # maps with nested domains
 # =============================================================================
 ax1 = fig.add_axes([1, 0, 1, 1], projection=ccrs.PlateCarree())
-ax1.set_extent([-74.5, -67.5, -25.5, -38.5], crs=ccrs.PlateCarree())
+ax1.set_extent([-74.5, -67.5, -25.5, -38.5])
 ax1.coastlines('10m')
 cuencas.boundary.plot(ax=ax1, transform=ccrs.PlateCarree(), lw=0)
 ax1.add_feature(cf.BORDERS, rasterized=True, ls=":")
@@ -158,9 +158,9 @@ bounds = [land_uses[name][0] for name in land_uses.keys()]
 norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
 
 ax11 = fig.add_axes([1.55, 0, 1, 1], projection=ccrs.PlateCarree())
-ax11.sharex(ax1)
-ax11.sharey(ax1)
-ax11.set_extent([-74.5, -67.5, -25.5, -38.5], crs=ccrs.PlateCarree())
+# ax11.sharex(ax1)
+# ax11.sharey(ax1)
+ax11.set_extent([-72.1, -69.5, -32.4, -37], crs=ccrs.PlateCarree())
 ax11.coastlines('10m')
 ax11.add_feature(cf.BORDERS, rasterized=True, ls=":")
 ax11.add_feature(cf.OCEAN, rasterized=True)
