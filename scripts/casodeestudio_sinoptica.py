@@ -240,7 +240,7 @@ box2 = ax[1, -1].get_position()
 
 cax = fig.add_axes([box2.xmax*1.03, box2.ymin, 0.01, box1.ymax-box2.ymin])
 fig.colorbar(pw, cax=cax,
-             label='Precipitable Water $(mm/h)$')
+             label='Precipitable Water $(mm/h)$\n and 800hPa wind vectors')
 
 plt.savefig('plots/caseofstudy_Aug2013/synoptic_tpwanalysis.pdf', dpi=150,
             bbox_inches='tight')
