@@ -35,8 +35,10 @@ import cartopy.feature as cf
 # =============================================================================
 # big time interval and graph time interval
 # =============================================================================
-interval = slice(datetime.datetime(2013, 8, 4),
-                 datetime.datetime(2013, 8, 16))
+interval = slice(datetime.datetime(2013, 8, 6),
+                 datetime.datetime(2013, 8, 15))
+interval2 = slice(datetime.datetime(2013, 8, 11),
+                  datetime.datetime(2013, 8, 16))
 
 
 # %%
@@ -52,6 +54,14 @@ runoff.index = pd.to_datetime(runoff.index)
 runoff2 = runoff[basin_attributes.gauge_name]
 runoff = runoff[interval]
 runoff = runoff.T.dropna(how='all').T
+
+
+# %%
+q95 = np.empty(runoff2.shape[1])
+for i, c in enumerate(runoff2.columns):
+    q95[i] = np.percentile(runoff2[c].dropna(), 90)
+
+q95 = pd.Series(q95, index=runoff2.columns)
 # %%
 # =============================================================================
 # PRECIPITATION, FREEZING LEVEL AND HYPSOMETRIC DATA
@@ -59,7 +69,7 @@ runoff = runoff.T.dropna(how='all').T
 
 pr = pd.read_csv('datos/pr_cr2met_mainbasins.csv', index_col=0)
 pr.index = pd.to_datetime(pr.index)
-pr = pr[interval]
+pr = pr[interval2]
 pr.columns = [int(p) for p in pr.columns]
 pr = pr[basin_attributes.index]
 
@@ -85,7 +95,7 @@ pluv_area = [int_func[i](H0_mm-300)*areas.values[i] for i in range(len(areas))]
 pluv_area = pd.DataFrame(pluv_area, columns=pr.index, index=areas.index).T
 # nonpluv_area = pd.DataFrame(nonpluv_area, columns=pr.index, index=pr.columns).T
 
-max_pluv_area = pluv_area.where(pr > 0.1).mean()
+max_pluv_area = pluv_area.where(pr > 0.1).max()
 # max_pluv_area.index = basin_attributes.gauge_name
 # %%
 # =============================================================================
@@ -121,16 +131,16 @@ polygons.plot(column='max_pluv_area',
               legend_kwds={'orientation': 'horizontal',
                            'fraction': 0.021,
                            'pad': 0.08,
-                           'label': 'Mean pluvial\narea during rain $(-)$',
-                           'ticks': [0.25, 0.45, 0.65, 0.85]})
+                           'label': 'Maximum pluvial\narea during rain $(-)$',
+                           'ticks': [0.3, 0.5, 0.7, 0.9]})
 
 
 # polygons.plot(polygons.gauge_name, ax=ax,facecolor=None)
 gauges = ['Rio Maipo En El Manzano',
           'Rio Cachapoal En Pte Termas De Cauquenes',
           'Rio Teno Despues De Junta Con Claro',
-          'Rio Colorado En Junta Con Palos',
-          'Rio Achibueno En La Recova',
+          'Rio Lircay En Puente Las Rastras',
+          'Rio Ancoa En El Morro',
           'Rio Uble En San Fabian N 2']
 
 polygons.boundary.plot(ax=ax, lw=0.5, color='k', transform=ccrs.PlateCarree())
@@ -172,7 +182,7 @@ del ax0, ax1, ax2, ax3, ax4, ax5
 for i, g in enumerate(gauges):
     axis = axes[i]
     axis.plot(runoff[g], color=colors[i, :], lw=2)
-    axis.set_xlim('2013-08-04', '2013-08-16')
+    axis.set_xlim(interval.start, interval.stop)
     axis.set_xticks(runoff.index[:: 48])
     axis.set_xticklabels([])
     axis.tick_params(axis='x', which='major', rotation=45)
@@ -188,6 +198,7 @@ for i, g in enumerate(gauges):
     if i > 2:
         axis.yaxis.tick_right()
         axis.yaxis.set_label_position("right")
+
 
 axes[2].xaxis.set_major_formatter(mpl.dates.DateFormatter('%m-%d'))
 axes[2].xaxis.set_major_locator(mpl.dates.DayLocator(interval=2))

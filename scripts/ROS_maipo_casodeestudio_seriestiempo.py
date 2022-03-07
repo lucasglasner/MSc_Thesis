@@ -218,8 +218,8 @@ def local_minimum_filter(ts, size):
 date = "2013-08-11"
 # date = "2013-09-11"
 interval = datetime.datetime.strptime(date, '%Y-%m-%d')
-interval = slice(interval-datetime.timedelta(days=8),
-                 interval+datetime.timedelta(days=5))
+interval = slice(interval-datetime.timedelta(days=6),
+                 interval+datetime.timedelta(days=4))
 
 # =============================================================================
 # basin polygon and hypsometry
@@ -301,7 +301,7 @@ ROS.columns = ["dH", 'pr']
 # date = "2010-06-23"
 
 
-fig, ax = plt.subplots(4, 1, sharex=True, figsize=(8, 8))
+fig, ax = plt.subplots(4, 1, sharex=True, figsize=(10, 8))
 fig.tight_layout(pad=0.8)
 plt.rc('font', size=18)
 # =============================================================================
@@ -393,14 +393,19 @@ for axis in ax:
     axis.set_xlim(interval.start, interval.stop)
     # axis.tick_params(axis='x',rotation=45)
     axis.grid(which='both', ls=":", axis="x")
-    axis.xaxis.set_minor_locator(mpl.dates.DayLocator(interval=1))
-    axis.xaxis.set_minor_formatter(mpl.dates.DateFormatter('%d'))
-    axis.xaxis.set_major_locator(mpl.dates.DayLocator(interval=19))
-    axis.xaxis.set_major_formatter(mpl.dates.DateFormatter('\n%d\n%b-%Y'))
+    axis.xaxis.set_minor_locator(mpl.dates.HourLocator(interval=6))
+    axis.xaxis.set_minor_formatter(mpl.dates.DateFormatter('%H'))
+    axis.xaxis.set_major_locator(mpl.dates.DayLocator(interval=1))
+    axis.xaxis.set_major_formatter(mpl.dates.DateFormatter('\n%d'))
     for maj in axis.xaxis.get_major_ticks():
         maj.label.set_fontsize(18)
     for m in axis.xaxis.get_minor_ticks():
-        m.label.set_fontsize(16)
+        m.label.set_fontsize(12)
+    axis.tick_params(axis="x", which='minor', rotation=45)
 
-# plt.savefig('plots/caseofstudy_Aug2013/ROS_maipo_caseofstudy.pdf', dpi=150,
-#             bbox_inches='tight')
+box = ax[-1].get_position()
+fig.text(box.xmin, box.ymin*-0.6,
+         '\nAug\n2013', ha='center', va='center')
+
+plt.savefig('plots/caseofstudy_Aug2013/ROS_maipo_caseofstudy.pdf', dpi=150,
+            bbox_inches='tight')
