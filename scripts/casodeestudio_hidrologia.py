@@ -167,7 +167,7 @@ def sliding_interval_filter(ts, size):
 
 
 def _local_minimum(window):
-    win_center_ix = len(window) / 2
+    win_center_ix = len(window) // 2
     win_center_val = window[win_center_ix]
     win_minimum = np.min(window)
     if win_center_val == win_minimum:
@@ -194,7 +194,7 @@ def local_minimum_filter(ts, size):
     origin = int(size) / 2
     baseflow_min = pd.Series(generic_filter(
         ts, _local_minimum, footprint=np.ones(size)), index=ts.index)
-    baseflow = baseflow_min.interpolate(method='cubicspline')
+    baseflow = baseflow_min.interpolate(method='linear')
     # interpolation between values may lead to baseflow > streamflow
     errors = (baseflow > ts)
     while errors.any():
@@ -220,7 +220,7 @@ def local_minimum_filter(ts, size):
 interval = slice(datetime.datetime(2013, 8, 1),
                  datetime.datetime(2013, 8, 16))
 interval2 = slice(datetime.datetime(2013, 8, 11),
-                  datetime.datetime(2013, 8, 14))
+                  datetime.datetime(2013, 8, 16))
 
 
 # %%
@@ -280,7 +280,7 @@ int_func = [interp1d(hypso[b].height, hypso[b].fArea) for b in pr.columns]
 H0_mm = pd.read_csv('datos/stodomingo/isoterma0.csv',
                     index_col=0).squeeze()
 H0_mm.index = pd.to_datetime(H0_mm.index)-datetime.timedelta(hours=4)
-H0_mm = H0_mm[interval].reindex(pr.index).interpolate('cubicspline')
+H0_mm = H0_mm.reindex(pr.index)[interval].interpolate('cubicspline')
 
 pluv_area = [int_func[i](H0_mm-300)*areas[i] for i in range(3)]
 nonpluv_area = [(1-int_func[i](H0_mm-300))*areas[i] for i in range(3)]
@@ -307,9 +307,10 @@ SCA0.index = pd.to_datetime(SCA0.index)
 SCA1.index = pd.to_datetime(SCA1.index)
 SCA2.index = pd.to_datetime(SCA2.index)
 
-SCA = pd.concat([s.iloc[:, 1] for s in [SCA0, SCA1, SCA2]], axis=1)[interval]
+SCA = pd.concat([s.iloc[:, 1]
+                for s in [SCA0, SCA1, SCA2]], axis=1).reindex(pr.index)
 SCA.columns = pr.columns
-SCA = SCA.reindex(pr.index).interpolate('cubicspline')/100
+SCA = SCA[interval].interpolate('cubicspline')/100
 
 snow_area = [SCA[b]*areas.loc[b] for b in pr.columns]
 snow_area = pd.concat(snow_area, axis=1)
@@ -338,10 +339,13 @@ runoff = runoff2[interval]
 runoff = runoff.T.dropna(how='all').T
 
 
-baseflows = [sliding_interval_filter(runoff[b], 100)[0] for b in pr.columns]
+baseflows = [local_minimum_filter(runoff[b], 30)[0] for b in pr.columns]
 baseflows = pd.concat(baseflows, axis=1)
+baseflows.columns = pr.columns
 
-
+quickflows = [runoff[c]-baseflows[c] for c in pr.columns]
+quickflows = pd.concat(quickflows, axis=1)
+quickflows = quickflows.where(quickflows > 0).fillna(0)
 # %%
 # =============================================================================
 # RASTER DATA, SWE, TOPOGRAPHY AND PLUVIAL AREA MASKS
@@ -381,6 +385,33 @@ melt = pd.concat(melt, axis=1)*-1
 melt.columns = pr.columns
 melt = melt.reindex(pr.index).interpolate(method='cubicspline')/24
 # %%
+# =============================================================================
+# compute flood stats
+# =============================================================================
+qmax = runoff[interval2].max()
+pr_max = pr[interval2].max()
+pr_cum = pr[interval2].sum()
+
+rain = pr[interval2].where(pr[interval2] > 0).dropna(how='all')
+start_rain = [rain[c].dropna().index[0] for c in rain.columns]
+end_rain = [rain[c].dropna().index[-1] for c in rain.columns]
+start_rain = np.array(start_rain)
+end_rain = np.array(end_rain)
+rain_duration = end_rain-start_rain
+# rain_duration = np.array([rd.total_seconds() for rd in rain_duration])/3600
+rain_duration = pd.Series(rain_duration, index=qmax.index)
+rain_duration = rain_duration.map(lambda x: int(x.total_seconds()/3600))
+tau = (runoff)[interval2].idxmax()-start_rain
+tau = tau.map(lambda x: int(x.total_seconds()/3600))
+
+melt_cum = melt[interval2][pr[interval2] > 0].sum()
+
+
+stats = pd.concat([qmax, pr_max, pr_cum, melt_cum, rain_duration, tau], axis=1)
+stats.columns = ['Qmax', 'PRmax', 'PRcum', 'Snowmelt', 'RainDuration', 'tau']
+
+stats = stats.round(2)
+# %%
 plt.rc("font", size=18)
 fig, ax = plt.subplots(2, 3, figsize=(14, 4), sharex='col',
                        gridspec_kw={'height_ratios': [1, 2]},
@@ -388,6 +419,17 @@ fig, ax = plt.subplots(2, 3, figsize=(14, 4), sharex='col',
 titles = ['Rio Maipo\nEn El Manzano',
           'Rio Teno Despues\nDe Junta Con Claro',
           'Rio Uble En\nSan Fabian N 2']
+
+# these are matplotlib.patch.Patch properties
+props = dict(facecolor='white', lw=1)
+names = ['$Q_{max}$: ', '$PR_{max}$: ', '$PR_{cum}$: ', '$Melt_{cum}$: ',
+         '$RainDuration$: ', r'$\tau_{peak}$: ']
+units = ['$m^3/s$', '$mm/h$', '$mm$', '$mm$', '$hr$', '$hr$']
+
+# # place a text box in upper left in axes coords
+# ax.text(0.05, 0.95, textstr, transform=ax.transAxes, fontsize=14,
+#         verticalalignment='top', bbox=props)
+
 for i, axis in enumerate(ax[0, :]):
     axis.bar(pr.index-datetime.timedelta(hours=1),
              pr.iloc[:, i], color='cadetblue',
@@ -401,15 +443,22 @@ for i, axis in enumerate(ax[0, :]):
     axis.set_yticklabels([0, "", 3, "", 6])
 
     axis.grid(True, which='major', ls=":", zorder=0)
-    axis.set_title(titles[i], loc='left', pad=30)
+    axis.set_title(titles[i], loc='left', pad=25)
+
+    box = stats.iloc[i, :]
+    box = ['{:.1f}'.format((round(box[i], 1))) for i in range(len(box))]
+
+    textstr = '\n'.join([n+b+u for n, b, u in zip(names, box, units)])
+    axis.text(0.6, 1.2, textstr, transform=axis.transAxes, fontsize=10,
+              verticalalignment='top', bbox=props)
     # axis.set_ylim(0,6)
 
 
 for i, axis in enumerate(ax[1, :]):
     axis.plot(runoff.index,
-              runoff.iloc[:, i]-baseflows.iloc[:, i],
+              quickflows.iloc[:, i],
               color='darkblue')
-
+    axis.set_ylim(0, quickflows.max().max()*1.05)
     axis1 = axis.twinx()
     axis1.set_ylim(0, 1)
     axis1.set_yticks([0, 0.25, 0.5, 0.75, 1])
@@ -441,10 +490,16 @@ for i, axis in enumerate(ax[1, :]):
     for maj in axis.xaxis.get_major_ticks():
         maj.label.set_fontsize(18)
     for m in axis.xaxis.get_minor_ticks():
-        m.label.set_fontsize(12)
-    axis.set_xlim([15927.7, 15931])
+        m.label.set_fontsize(10)
+    axis.set_xlim([15927.7, 15933])
 ax[-1, 0].set_ylabel('$(m^3/s)$')
 ax[0, 0].set_ylabel('$(mm/h)$')
+ax[1, 0].plot([], [], color='tab:green', label='ROS Area')
+ax[1, 0].plot([], [], color='tab:red', label='Pluvial Area')
+ax[1, 0].legend(frameon=False, fontsize=14, loc='upper left')
+
+axis1.set_ylabel('Fraction of\ntotal Area (-)')
+
 
 box = ax[1, 0].get_position()
 fig.text(box.xmin*1.15, box.ymin*-1.15,

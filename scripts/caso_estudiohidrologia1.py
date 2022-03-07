@@ -46,12 +46,47 @@ interval = slice(datetime.datetime(2013, 8, 4),
 
 basin_attributes = pd.read_csv('datos/basins_attributes.csv', index_col=0)
 basin_attributes = basin_attributes.sort_values(
-    by='gauge_name', ascending=False)
+    by='gauge_name', ascending=True)
 runoff = pd.read_csv('datos/runoff_gauges_dataset.csv', index_col=0)
 runoff.index = pd.to_datetime(runoff.index)
 runoff2 = runoff[basin_attributes.gauge_name]
 runoff = runoff[interval]
 runoff = runoff.T.dropna(how='all').T
+# %%
+# =============================================================================
+# PRECIPITATION, FREEZING LEVEL AND HYPSOMETRIC DATA
+# =============================================================================
+
+pr = pd.read_csv('datos/pr_cr2met_mainbasins.csv', index_col=0)
+pr.index = pd.to_datetime(pr.index)
+pr = pr[interval]
+pr.columns = [int(p) for p in pr.columns]
+pr = pr[basin_attributes.index]
+
+paths = glob('datos/topography/basins/hypso/*.csv')
+hypso = [pd.read_csv(p, index_col=0) for p in paths]
+hypso = pd.concat(hypso, keys=basin_attributes.index,
+                  axis=1)
+
+
+areas = [hypso[b].Area_km2.max() for b in pr.columns]
+areas = pd.Series(areas, index=pr.columns)
+int_func = [interp1d(hypso[b].index, hypso[b].fArea) for b in pr.columns]
+# == == == == == == == == == == == == == == == == == == == == == == == == == == == ==
+
+# %%
+H0_mm = pd.read_csv('datos/stodomingo/isoterma0.csv',
+                    index_col=0).squeeze()
+H0_mm.index = pd.to_datetime(H0_mm.index)-datetime.timedelta(hours=4)
+H0_mm = H0_mm.resample('d').mean().reindex(pr.index)
+
+pluv_area = [int_func[i](H0_mm-300)*areas.values[i] for i in range(len(areas))]
+# nonpluv_area = [(1-int_func[i](H0_mm-300))*areas[i] for i in range(3)]
+pluv_area = pd.DataFrame(pluv_area, columns=pr.index, index=areas.index).T
+# nonpluv_area = pd.DataFrame(nonpluv_area, columns=pr.index, index=pr.columns).T
+
+max_pluv_area = pluv_area.where(pr > 0.1).mean()
+# max_pluv_area.index = basin_attributes.gauge_name
 # %%
 # =============================================================================
 # BASIN POLYGONS
@@ -61,6 +96,8 @@ polygons = pd.concat([gpd.read_file(p) for p in paths])
 polygons.index = polygons.gauge_id
 polygons = polygons.loc[basin_attributes.index]
 polygons.gauge_name = basin_attributes.gauge_name
+
+polygons['max_pluv_area'] = (max_pluv_area/areas).values
 
 
 # %%
@@ -75,17 +112,17 @@ ax.add_feature(cf.LAND, rasterized=True)
 
 polygons.index = polygons.gauge_name
 
-n = 1250
-polygons.plot(column='area_km2',
+n = 0.25
+polygons.plot(column='max_pluv_area',
               ax=ax,
               transform=ccrs.PlateCarree(),
-              cmap='BuPu',
+              cmap='BuPu_r',
               legend=True,
               legend_kwds={'orientation': 'horizontal',
                            'fraction': 0.021,
                            'pad': 0.08,
-                           'label': 'Basin Total Area $(km^2)$',
-                           'ticks': np.arange(500, 4500+n, n)})
+                           'label': 'Mean pluvial\narea during rain $(-)$',
+                           'ticks': [0.25, 0.45, 0.65, 0.85]})
 
 
 # polygons.plot(polygons.gauge_name, ax=ax,facecolor=None)
@@ -105,7 +142,8 @@ colors = plt.cm.tab10(np.linspace(0, 1, 10))
 # polygons.T[sorted(set2)].T.geometry
 for i, g in enumerate(gauges):
     gpd.GeoSeries(polygons.loc[g].geometry).boundary.plot(color=colors[i, :],
-                                                          ax=ax, zorder=11)
+                                                          ax=ax, zorder=11,
+                                                          lw=2)
     # polygons.boundary.loc[g].plot(ax=ax, color=colors[i,:],zorder=10,
     # transform=ccrs.PlateCarree())
 

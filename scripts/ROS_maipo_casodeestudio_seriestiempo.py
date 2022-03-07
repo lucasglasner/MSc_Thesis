@@ -168,7 +168,7 @@ def sliding_interval_filter(ts, size):
 
 
 def _local_minimum(window):
-    win_center_ix = len(window) / 2
+    win_center_ix = len(window) // 2
     win_center_val = window[win_center_ix]
     win_minimum = np.min(window)
     if win_center_val == win_minimum:
@@ -192,7 +192,7 @@ def local_minimum_filter(ts, size):
     :return: 
     """
 
-    origin = int(size) / 2
+    origin = int(size) // 2
     baseflow_min = pd.Series(generic_filter(
         ts, _local_minimum, footprint=np.ones(size)), index=ts.index)
     baseflow = baseflow_min.interpolate(method='linear')
@@ -227,7 +227,7 @@ interval = slice(interval-datetime.timedelta(days=8),
 cuenca = "RioMaipoEnElManzano"
 curva_hipso = pd.read_csv("datos/topography/basins/hypso/"+cuenca+"_hypso.csv")
 curva_hipso.drop_duplicates(subset="Area_km2", inplace=True)
-basin = gpd.read_file('datos/vector/'+cuenca+'.shp')
+basin = gpd.read_file('datos/vector/basins/'+cuenca+'.shp')
 
 
 # =============================================================================
@@ -382,7 +382,7 @@ ax22.set_ylabel('Wind Speed\n$(m/s)$')
 ax[3].plot(qinst_mm[interval], color='darkblue', label='Surface Runoff')
 ax[3].set_ylim(35, 73)
 ax[3].set_yticks([40, 50, 60, 70])
-ax[3].plot(sliding_interval_filter(qinst_mm[interval], 40)[0],
+ax[3].plot(local_minimum_filter(qinst_mm[interval], 20)[0],
            color='chocolate', label='Base Flow')
 ax[3].set_ylabel('Runoff\n$(m^3/s)$')
 ax[3].legend(loc=(0, 1.01), fontsize=16, ncol=2, frameon=False)
