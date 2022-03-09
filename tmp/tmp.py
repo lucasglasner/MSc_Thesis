@@ -221,7 +221,7 @@ plt.rc('font', size=18)
 
 # %%
 # date = "2010-06-23"
-date = "%YR%"
+date = "2005-10-23"
 yr, month, day = [int(n) for n in date.split("-")]
 interval = slice(datetime.datetime(yr, month, day)-datetime.timedelta(days=8),
                  datetime.datetime(yr, month, day)+datetime.timedelta(days=8))

@@ -35,11 +35,9 @@ import cartopy.feature as cf
 # =============================================================================
 # big time interval and graph time interval
 # =============================================================================
-
-interval = slice(datetime.datetime(2005, 10, 15),
-                 datetime.datetime(2005, 10, 25))
-interval2 = slice(datetime.datetime(2015, 7, 28),
-                  datetime.datetime(2015, 8, 10))
+date = "2015-08-05"
+interval = slice(datetime.datetime(2015, 7, 25),
+                 datetime.datetime(2015, 8, 10))
 
 
 # %%
@@ -70,7 +68,7 @@ q95 = pd.Series(q95, index=runoff2.columns)
 
 pr = pd.read_csv('datos/pr_cr2met_mainbasins.csv', index_col=0)
 pr.index = pd.to_datetime(pr.index)
-pr = pr[interval2]
+pr = pr[interval]
 pr.columns = [int(p) for p in pr.columns]
 pr = pr[basin_attributes.index]
 
@@ -137,11 +135,11 @@ polygons.plot(column='max_pluv_area',
 
 
 # polygons.plot(polygons.gauge_name, ax=ax,facecolor=None)
-gauges = ['Rio Maipo En El Manzano',
+gauges = ['Rio Mapocho En Los Almendros',
+          'Rio Maipo En El Manzano',
+          'Rio Cachapoal En Pte Termas De Cauquenes',
           'Rio Teno Despues De Junta Con Claro',
-          'Rio Colorado En Junta Con Palos',
-          'Rio Claro En Camarico',
-          'Rio Achibueno En La Recova',
+          'Rio Melado En El Salto',
           'Rio Uble En San Fabian N 2']
 
 polygons.boundary.plot(ax=ax, lw=0.5, color='k', transform=ccrs.PlateCarree())
@@ -217,5 +215,7 @@ axes[-2].set_ylabel('Runoff $(m^3/s)$')
 # axes[2].xaxis.set_minor_locator(mpl.dates.HourLocator(byhour=np.arange(0, 24, 6)))
 # axes.tick_params(axis='x', which='major', rotation=45)
 
+plt.savefig('plots/otroscasosdeestudio/runoff_basins_'+date+'.pdf',
+            dpi=150, bbox_inches='tight')
 # plt.savefig('plots/caseofstudy_Jun2010/runoff_basins.pdf',
 #             dpi=150, bbox_inches='tight')

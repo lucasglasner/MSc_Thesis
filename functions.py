@@ -276,7 +276,7 @@ def sliding_interval_filter(ts, size):
 
 
 def _local_minimum(window):
-    win_center_ix = len(window) / 2
+    win_center_ix = len(window) // 2
     win_center_val = window[win_center_ix]
     win_minimum = np.min(window)
     if win_center_val == win_minimum:
@@ -300,7 +300,7 @@ def local_minimum_filter(ts, size):
     :return: 
     """
 
-    origin = int(size) / 2
+    origin = int(size) // 2
     baseflow_min = pd.Series(generic_filter(
         ts, _local_minimum, footprint=np.ones(size)), index=ts.index)
     baseflow = baseflow_min.interpolate(method='linear')

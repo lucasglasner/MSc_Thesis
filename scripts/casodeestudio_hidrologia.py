@@ -10,207 +10,27 @@ Created on Mon Feb 28 13:27:42 2022
 # =============================================================================
 """
 
-from functions import add_labels
-from glob import glob
-from matplotlib.ticker import FormatStrFormatter
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-import xarray as xr
-import cartopy.crs as ccrs
-import datetime
-from scipy.interpolate import interp1d
-import scipy.stats as st
-from scipy.ndimage.filters import minimum_filter1d, generic_filter
-from scipy.ndimage.measurements import label
-from scipy.signal import argrelextrema
-import xarray as xr
-import cartopy.crs as ccrs
-import geopandas as gpd
 import cartopy.feature as cf
+import geopandas as gpd
+from scipy.signal import argrelextrema
+from scipy.ndimage.measurements import label
+from scipy.ndimage.filters import minimum_filter1d, generic_filter
+import scipy.stats as st
+from scipy.interpolate import interp1d
+import datetime
+import cartopy.crs as ccrs
+import xarray as xr
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+from matplotlib.ticker import FormatStrFormatter
+from glob import glob
+from functions import add_labels
+import sys
+sys.path.append('functions.py')
 
-
-def smooth(x, window_len=11, window='hanning'):
-    """smooth the data using a window with requested size.
-
-    This method is based on the convolution of a scaled window with the signal.
-    The signal is prepared by introducing reflected copies of the signal
-    (with the window size) in both ends so that transient parts are minimized
-    in the begining and end part of the output signal.
-
-    input:
-        x: the input signal
-        window_len: the dimension of the smoothing window; should be an odd integer
-        window: the type of window from 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'
-            flat window will produce a moving average smoothing.
-
-    output:
-        the smoothed signal
-
-    example:
-
-    t=linspace(-2,2,0.1)
-    x=sin(t)+randn(len(t))*0.1
-    y=smooth(x)
-
-    see also:
-
-    np.hanning, np.hamming, np.bartlett, np.blackman, np.convolve
-    scipy.signal.lfilter
-
-    TODO: the window parameter could be the window itself if an array instead of a string
-    NOTE: length(output) != length(input), to correct this: return y[(window_len/2-1):-(window_len/2)] instead of just y.
-    """
-
-    if x.ndim != 1:
-        raise ValueError
-
-    if x.size < window_len:
-        raise ValueError
-
-    if window_len < 3:
-        return x
-
-    if not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
-        raise ValueError
-
-    s = np.r_[x[window_len-1:0:-1], x, x[-2:-window_len-1:-1]]
-    # print(len(s))
-    if window == 'flat':  # moving average
-        w = np.ones(window_len, 'd')
-    else:
-        w = eval('np.'+window+'(window_len)')
-
-    y = np.convolve(w/w.sum(), s, mode='valid')
-    return y
-
-
-def minimum_filter(ts, **kwargs):
-    """Return stationary base flow
-
-    The base flow is set to the minimum observed flow.
-
-    :param ts:
-    :return:
-    """
-    minimum = min(ts)
-    out_values = minimum * np.ones(len(ts))
-    baseflow = pd.Series(data=out_values, index=ts.index)
-    quickflow = ts - baseflow
-    baseflow.name = 'baseflow'
-    quickflow.name = 'quickflow'
-    return baseflow, quickflow
-
-
-def fixed_interval_filter(ts, size):
-    """USGS HYSEP fixed interval method
-
-    The USGS HYSEP fixed interval method as described in `Sloto & Crouse, 1996`_.
-
-    .. _Slot & Crouse, 1996:
-        Sloto, Ronald A., and Michele Y. Crouse. “HYSEP: A Computer Program for Streamflow Hydrograph Separation and
-        Analysis.” USGS Numbered Series. Water-Resources Investigations Report. Geological Survey (U.S.), 1996.
-        http://pubs.er.usgs.gov/publication/wri964040.
-
-    :param size:
-    :param ts:
-    :return:
-    """
-    intervals = np.arange(len(ts)) // size
-    baseflow = pd.Series(data=ts.groupby(
-        intervals).transform('min'), index=ts.index)
-    quickflow = ts - baseflow
-
-    baseflow.name = 'baseflow'
-    quickflow.name = 'quickflow'
-
-    return baseflow, quickflow
-
-
-def sliding_interval_filter(ts, size):
-    """USGS HYSEP sliding interval method
-
-        The USGS HYSEP sliding interval method as described in `Sloto & Crouse, 1996`_.
-
-        The flow series is filter with scipy.ndimage.genericfilter1D using np.nanmin function
-        over a window of size `size`
-
-    .. _Slot & Crouse, 1996:
-        Sloto, Ronald A., and Michele Y. Crouse. “HYSEP: A Computer Program for Streamflow Hydrograph Separation and
-        Analysis.” USGS Numbered Series. Water-Resources Investigations Report. Geological Survey (U.S.), 1996.
-        http://pubs.er.usgs.gov/publication/wri964040.
-
-    :param size:
-    :param ts:
-    :return:
-    """
-    # TODO ckeck the presence of nodata
-    if (ts.isnull()).any():
-        blocks, nfeatures = label(~ts.isnull())
-        block_list = [ts[blocks == i] for i in range(1, nfeatures + 1)]
-        na_df = ts[blocks == 0]
-        block_bf = [pd.Series(data=minimum_filter1d(block, size, mode='reflect'), index=block.index) for block in
-                    block_list]
-        baseflow = pd.concat(block_bf + [na_df], axis=0)
-        baseflow.sort_index(inplace=True)
-    else:
-        baseflow = pd.Series(data=minimum_filter1d(
-            ts, size, mode='reflect'), index=ts.index)
-
-    quickflow = ts - baseflow
-
-    baseflow.name = 'baseflow'
-    quickflow.name = 'quickflow'
-
-    return baseflow, quickflow
-
-
-def _local_minimum(window):
-    win_center_ix = len(window) // 2
-    win_center_val = window[win_center_ix]
-    win_minimum = np.min(window)
-    if win_center_val == win_minimum:
-        return win_center_val
-    else:
-        return np.nan
-
-
-def local_minimum_filter(ts, size):
-    """USGS HYSEP local minimum method
-
-        The USGS HYSEP local minimum method as described in `Sloto & Crouse, 1996`_.
-
-    .. _Slot & Crouse, 1996:
-        Sloto, Ronald A., and Michele Y. Crouse. “HYSEP: A Computer Program for Streamflow Hydrograph Separation and
-        Analysis.” USGS Numbered Series. Water-Resources Investigations Report. Geological Survey (U.S.), 1996.
-        http://pubs.er.usgs.gov/publication/wri964040.
-
-    :param size:
-    :param ts:
-    :return:
-    """
-
-    origin = int(size) / 2
-    baseflow_min = pd.Series(generic_filter(
-        ts, _local_minimum, footprint=np.ones(size)), index=ts.index)
-    baseflow = baseflow_min.interpolate(method='linear')
-    # interpolation between values may lead to baseflow > streamflow
-    errors = (baseflow > ts)
-    while errors.any():
-        print('hello world')
-        error_labelled, n_features = label(errors)
-        error_blocks = [ts[error_labelled == i]
-                        for i in range(1, n_features + 1)]
-        error_local_min = [argrelextrema(e.values, np.less)[
-            0] for e in error_blocks]
-        print(error_local_min)
-        break
-    quickflow = ts - baseflow
-    baseflow.name = 'baseflow'
-    quickflow.name = 'quickflow'
-
-    return baseflow, quickflow
+# %%
 
 
 # %%
@@ -219,8 +39,6 @@ def local_minimum_filter(ts, size):
 # =============================================================================
 interval = slice(datetime.datetime(2013, 8, 6),
                  datetime.datetime(2013, 8, 15))
-interval2 = slice(datetime.datetime(2013, 8, 6),
-                  datetime.datetime(2013, 8, 14))
 
 date_interval = pd.date_range(interval.start, interval.stop, freq='h')
 basin_attributes = pd.read_csv('datos/basins_attributes.csv')
@@ -265,6 +83,11 @@ for basin in basins:
 
 pr = pd.concat(pr, axis=1)
 pr.columns = basins
+
+pr_laobra = pd.read_csv('datos/estaciones/pr_laobra.csv', dtype=str)
+pr_laobra.index = pd.to_datetime(
+    pr_laobra.iloc[:, 0]+"-"+pr_laobra.iloc[:, 1]+"-"+pr_laobra.iloc[:, 2])
+pr_laobra = pd.to_numeric(pr_laobra.iloc[:, 3])
 # %%
 # =============================================================================
 # hypsometric curves
@@ -333,6 +156,7 @@ nonpluv_area_era5 = areas-pluv_area_era5
 # SNOW COVER
 # =============================================================================
 
+
 SCA = []
 for b in basins:
     p = 'datos/ianigla/'+b.replace(" ", "")+'_SCA_s_comp.filtro_MA.3días.csv'
@@ -395,9 +219,9 @@ SWE0 = xr.open_dataset(
 SWE1 = xr.open_dataset('datos/ANDES_SWE_Cortes/ANDES_SWE_WY2014_Teno.nc')
 SWE2 = xr.open_dataset('datos/ANDES_SWE_Cortes/ANDES_SWE_WY2014_Uble.nc')
 
-SWE = [SWE0.SWE.sel(time=interval),
-       SWE1.SWE.sel(time=interval),
-       SWE2.SWE.sel(time=interval)]
+SWE = [SWE0.SWE.sel(time="2013-08"),
+       SWE1.SWE.sel(time="2013-08"),
+       SWE2.SWE.sel(time="2013-08")]
 
 del SWE0, SWE1, SWE2
 
@@ -434,42 +258,139 @@ melt = melt.reindex(pr.index).interpolate(method='cubicspline')/24
 # =============================================================================
 # compute flood stats
 # =============================================================================
-# qmax = runoff[interval2].max()
-# pr_max = pr[interval2].max()
-# pr_cum = pr[interval2].sum()
+interval2 = slice(datetime.datetime(2013, 8, 10),
+                  datetime.datetime(2013, 8, 14))
 
-# rain = pr[interval2].where(pr[interval2] > 0).dropna(how='all')
-# start_rain = [rain[c].dropna().index[0] for c in rain.columns]
-# end_rain = [rain[c].dropna().index[-1] for c in rain.columns]
-# start_rain = np.array(start_rain)
-# end_rain = np.array(end_rain)
-# rain_duration = end_rain-start_rain
-# # rain_duration = np.array([rd.total_seconds() for rd in rain_duration])/3600
-# rain_duration = pd.Series(rain_duration, index=qmax.index)
-# rain_duration = rain_duration.map(lambda x: int(x.total_seconds()/3600))
-# tau = (runoff)[interval2].idxmax()-start_rain
-# tau = tau.map(lambda x: int(x.total_seconds()/3600))
+qmax = runoff[interval2].max()
+pr_max = pr[interval2].max()
+pr_cum = pr[interval2].sum()
 
-# melt_cum = melt[interval2][pr[interval2] > 0].sum()
+rain = pr[interval2].where(pr[interval2] > 0).dropna(how='all')
+start_rain = [rain[c].dropna().index[0] for c in rain.columns]
+end_rain = [rain[c].dropna().index[-1] for c in rain.columns]
+start_rain = np.array(start_rain)
+end_rain = np.array(end_rain)
+rain_duration = end_rain-start_rain
+# rain_duration = np.array([rd.total_seconds() for rd in rain_duration])/3600
+rain_duration = pd.Series(rain_duration, index=qmax.index)
+rain_duration = rain_duration.map(lambda x: int(x.total_seconds()/3600))
+tau = (runoff)[interval2].idxmax()-start_rain
+tau = tau.map(lambda x: int(x.total_seconds()/3600))
+
+melt_cum = melt[interval2][pr[interval2] > 0].sum()
 
 
-# runoff3 = runoff2.resample('d').max()
-# q_ext = np.empty(runoff3.shape[1])
-# for i in range(len(q_ext)):
-#     q_ext[i] = np.percentile(runoff3.iloc[:, i].dropna(), 90)
-# q_ext = pd.Series(q_ext, index=runoff3.columns)
+runoff3 = runoff2.resample('d').max()
+q_ext = np.empty(runoff3.shape[1])
+for i in range(len(q_ext)):
+    q_ext[i] = np.percentile(runoff3.iloc[:, i].dropna(), 90)
+q_ext = pd.Series(q_ext, index=runoff3.columns)
 
-# stats = pd.concat([qmax, q_ext, pr_max, pr_cum,
-#                   melt_cum, rain_duration, tau], axis=1)
-# stats.columns = ['Qmax', 'Q90', 'PRmax',
-#                  'PRcum', 'Snowmelt', 'RainDuration', 'tau']
+stats = pd.concat([qmax, q_ext, pr_max, pr_cum,
+                  melt_cum, rain_duration, tau], axis=1)
+stats.columns = ['Qmax', 'Q90', 'PRmax',
+                 'PRcum', 'Snowmelt', 'RainDuration', 'tau']
 
-# stats = stats.round(2)
+stats = stats.round(2)
 # %%
 # =============================================================================
 # MAIPO EN EL MANZANO
 # =============================================================================
+interval3 = slice(datetime.datetime(2013, 8, 7, 6),
+                  datetime.datetime(2013, 8, 13, 3))
+plt.rc("font", size=18)
+fig, ax = plt.subplots(2, 1, figsize=(12, 4), sharex=True,
+                       gridspec_kw={'height_ratios': [1, 2]})
 
+basin = 'Rio Maipo En El Manzano'
+props = dict(facecolor='white', lw=1)
+names = ['$Q_{max}$: ', '$Q_{90}$: ', '$PR_{max}$: ', '$PR_{cum}$: ', '$Melt_{cum}$: ',
+         '$RainDuration$: ', r'$\tau_{peak}$: ']
+units = ['$m^3/s$', '$m^3/s$', '$mm/h$', '$mm$', '$mm$', '$hr$', '$hr$']
+
+ax[0].bar(pr.index-datetime.timedelta(hours=1),
+          pr[basin], width=pd.Timedelta(hours=1), color='cadetblue',
+          align='edge', label='Precipitation')
+ax[0].grid(True, which='both', ls=":")
+ax[0].set_yticks([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
+ax[0].set_yticklabels([0, "", "", 3, "", "", 6, "", "", 9, "", "", 12])
+ax[0].set_ylim(0, 7)
+# ax[0].bar(melt.index, melt[basin], edgecolor="k")
+ax[0].bar(melt.index-datetime.timedelta(hours=1),
+          melt[basin], edgecolor='k', linewidth=0.0, color='darkviolet',
+          width=pd.Timedelta(hours=1), align='edge', label='Snowmelt',
+          bottom=pr[basin].fillna(0), zorder=2)
+# # ax[0].bar(pr.index-datetime.timedelta(hours=1),
+# #             gin,
+# #             width=0.037, edgecolor='k', color='orange')
+ax[0].set_ylabel('(mm/h)')
+ax[0].legend(frameon=False, loc=(0.01, 0.95), ncol=2, fontsize=12)
+ax[0].set_title(basin, loc='right')
+
+box = stats.loc[basin]
+box = ['{:.1f}'.format((round(box[i], 1))) for i in range(len(box))]
+
+textstr = '\n'.join([n+b+u for n, b, u in zip(names, box, units)])
+ax[0].text(0.4, 1.5, textstr, transform=ax[0].transAxes, fontsize=10,
+           verticalalignment='top', bbox=props)
+
+
+ax[1].plot(pr.index, quickflows[basin],
+           label='Direct Runoff', color='darkblue')
+ax[1].grid(axis="x", which='both', ls=":")
+# ax[1, 0].set_yticks([0, 7, 14, 21, 28])
+# ax[1, 0].set_ylim(0, 28)
+# ax[1].scatter((q-baseflow)[interval2][np.where((q-baseflow)[interval2]<1)[0][:2]].index,
+#               (q-baseflow)[interval2][np.where((q-baseflow)[interval2]<1)[0][:2]],
+#               ec="k",zorder=10)
+# ax[1, 0].axvspan("2013-08-11T18:00:00",
+# "2013-08-13T09:00:00", alpha=0.15, color='k')
+# ax[1].axvline("2013-08-11T14:00",color='k',alpha=0.5, ls=":")
+ax[1].set_ylabel('$(m^3/s)$')
+ax[1].legend(loc=(0.8, 1), frameon=False, fontsize=12)
+
+
+# ax[1].plot(pr.index, (quickflows)[interval2], color='darkblue')
+# ax[1].plot(pr.index, (quickflows)[interval2], color='darkblue')
+ax1 = ax[1].twinx()
+ax1.set_ylim(0, 1)
+ax1.set_yticks(np.arange(0, 1+0.1, 0.1))
+ax1.set_yticklabels([0, "", .2, "", .4, "", .6, "", .8, "", 1])
+ax1.plot(pr.index, pluv_area[basin]/areas[basin], color='tab:red',
+         alpha=0.2, ls="--")
+ax1.plot(pr.index, pluv_area[basin].where(pr[basin] > 0)/areas[basin],
+         color='tab:red',
+         label='Pluvial Area')
+ax1.plot(pr.index, ros_area[basin].where(ros_area[basin] > 0).where(pr[basin] > 0)/areas[basin],
+         color='tab:green', label='ROS Area')
+ax1.plot(pr.index, SCA[basin].where(pr[basin] > 0), color='tab:blue',
+         label='SCA')
+ax1.plot(pr.index, SCA[basin], color='tab:blue', alpha=0.2,
+         ls="--")
+
+ax1.set_ylabel('Fraction of\ntotal Area (%)')
+ax1.legend(frameon=False, fontsize=12, loc=(0, 1), ncol=3)
+
+
+for axis in [ax[1]]:
+    axis.xaxis.set_major_formatter(mpl.dates.DateFormatter('\n\n%d'))
+    axis.xaxis.set_major_locator(mpl.dates.DayLocator(interval=1))
+
+    axis.xaxis.set_minor_formatter(mpl.dates.DateFormatter('%H:%M'))
+    axis.xaxis.set_minor_locator(
+        mpl.dates.HourLocator(byhour=np.arange(0, 24, 3)))
+    axis.tick_params(axis='x', which='minor', rotation=45)
+
+    for maj in axis.xaxis.get_major_ticks():
+        maj.label.set_fontsize(18)
+    for m in axis.xaxis.get_minor_ticks():
+        m.label.set_fontsize(12)
+    axis.set_xlim(interval3.start, interval3.stop)
+
+box = ax[1].get_position()
+fig.text(box.xmin, box.ymin*-1.15, '2013-Aug', ha='center', va='center')
+plt.savefig('plots/caseofstudy_Aug2013/flood_study_'+basin.replace(" ", "")+'.pdf',
+            dpi=150, bbox_inches='tight')
 
 # %%
 plt.rc("font", size=18)
@@ -493,11 +414,12 @@ units = ['$m^3/s$', '$m^3/s$', '$mm/h$', '$mm$', '$mm$', '$hr$', '$hr$']
 for i, axis in enumerate(ax[0, :]):
     axis.bar(pr.index-datetime.timedelta(hours=1),
              pr.iloc[:, i], color='cadetblue',
-             width=0.05, align='edge', label='Precipitation',
+             width=pd.Timedelta(hours=1),
+             align='edge', label='Precipitation',
              edgecolor='k', linewidth=0.0, zorder=1)
     axis.bar(melt.index-datetime.timedelta(hours=1),
              melt.iloc[:, i], edgecolor='k', linewidth=0.0, color='darkviolet',
-             width=0.05, align='edge', label='Snowmelt',
+             width=pd.Timedelta(hours=1), align='edge', label='Snowmelt',
              bottom=pr.iloc[:, i].fillna(0), zorder=2)
     axis.set_yticks(np.arange(0, 9+1.5, 1.5))
     axis.set_yticklabels([0, "", 3, "", 6, "", 9])
