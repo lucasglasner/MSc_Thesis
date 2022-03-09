@@ -223,7 +223,8 @@ interval2 = slice(datetime.datetime(2013, 8, 6),
                   datetime.datetime(2013, 8, 14))
 
 date_interval = pd.date_range(interval.start, interval.stop, freq='h')
-
+basin_attributes = pd.read_csv('datos/basins_attributes.csv')
+basin_attributes.index = basin_attributes.gauge_name
 # %%
 # =============================================================================
 # PRECIPITATION ON BASIN OUTLETS
@@ -283,32 +284,49 @@ int_func = [interp1d(hypso[b].height, hypso[b].fArea) for b in pr.columns]
 # ZERO DEGREE LEVEL AND PLUVIAL AREA
 # =============================================================================
 
+# santo domingo
 H0_mm = pd.read_csv('datos/stodomingo/isoterma0.csv',
                     index_col=0).squeeze()
 H0_mm.index = pd.to_datetime(H0_mm.index)-datetime.timedelta(hours=4)
-H0_mm = H0_mm['2013-08'].resample("h").interpolate('linear')
+H0_mm = H0_mm['2013-08'].resample("h").interpolate('cubicspline')
 H0_mm = H0_mm[interval]
 
-# %%
+# era 5
 H0 = xr.open_dataset('datos/era5/H0_ERA5_2013.nc').deg0l
-
-
 H0_m = []
 for b in basins:
-    lat, lon = basin_attributes.loc[b].gauge_lat, basin_attributes.loc[b].gauge_lon
+    lat, lon = basin_attributes.loc[b].gauge_lat, basin_attributes.loc[b].gauge_lon-1
     h0 = H0.sel(lat=lat, lon=lon, method='nearest').to_series()
     H0_m.append(h0['2013-08'])
 
 H0_m = pd.concat(H0_m, axis=1)
 H0_m.columns = basins
-H0_m = H0_m.resample('h').interpolate('linear')[interval]
-# %%
-pluv_area = [int_func[i](H0_m.iloc[:, i]-300)*areas[i]
+H0_m = H0_m.resample('h').interpolate('cubicspline')[interval]
+
+del H0
+
+# area pluvial con santo domingo
+pluv_area = [int_func[i](H0_mm-300)*areas[i]
              for i in range(pr.shape[1])]
-nonpluv_area = [(1-int_func[i](H0_m.iloc[:, i]-300))*areas[i]
+nonpluv_area = [(1-int_func[i](H0_mm-300))*areas[i]
                 for i in range(pr.shape[1])]
 pluv_area = pd.DataFrame(pluv_area, columns=pr.index, index=pr.columns).T
 nonpluv_area = pd.DataFrame(nonpluv_area, columns=pr.index, index=pr.columns).T
+
+# area pluvial con era5
+pluv_area_era5 = []
+for i in range(H0_m.shape[1]):
+    pluv_area_era5.append(int_func[i]((H0_m.iloc[:, i]-300))*areas[i])
+
+pluv_area_era5 = pd.DataFrame(
+    pluv_area_era5, index=pluv_area.columns, columns=pluv_area.index).T
+nonpluv_area_era5 = areas-pluv_area_era5
+# pluv_area_era5.columns = pluv_area.columns
+# # %%
+# fig, ax = plt.subplots(1, 1)
+# (pluv_area).plot(ax=ax)
+# (pluv_area_era5).plot(ax=ax, legend=False)
+
 
 # %%
 # =============================================================================
@@ -326,7 +344,7 @@ SCA = pd.concat(SCA, axis=1)
 SCA.columns = pr.columns
 
 
-SCA = SCA['2013-08'].resample('h').interpolate('linear')[interval]
+SCA = SCA['2013-08'].resample('h').interpolate('cubicspline')[interval]
 
 snow_area = [SCA[b]*areas.loc[b] for b in pr.columns]
 snow_area = pd.concat(snow_area, axis=1)
@@ -335,9 +353,11 @@ snow_area = pd.concat(snow_area, axis=1)
 # =============================================================================
 # ROS AREA
 # =============================================================================
+# ROS = xr.open_dataset('datos/ROS/CORTES_CR2MET_ERA5/ROS_UBLE2013.nc')
+# ROS = ROS.ROS.sel(time=interval)
 
 ros_area = np.clip(snow_area-nonpluv_area, 0, 7e3)
-ros_area = ros_area.where(pr > 3/24).where(SCA.diff() <= 0)
+# ros_area = ros_area.where(pr > 3/24).where(SCA.diff() <= 0)
 
 
 # %%
@@ -366,46 +386,50 @@ quickflows = pd.concat(quickflows, axis=1)
 quickflows = quickflows.where(quickflows > 0).fillna(0)
 
 # %%
-
-
-# %%
 # =============================================================================
 # RASTER DATA, SWE, TOPOGRAPHY AND PLUVIAL AREA MASKS
 # =============================================================================
 
-# SWE0 = xr.open_dataset(
-#     'datos/ANDES_SWE_Cortes/maipomanzano/ANDES_SWE_WY2014.nc')
-# SWE1 = xr.open_dataset('datos/ANDES_SWE_Cortes/ANDES_SWE_WY2014_Teno.nc')
-# SWE2 = xr.open_dataset('datos/ANDES_SWE_Cortes/ANDES_SWE_WY2014_Uble.nc')
+SWE0 = xr.open_dataset(
+    'datos/ANDES_SWE_Cortes/maipomanzano/ANDES_SWE_WY2014.nc')
+SWE1 = xr.open_dataset('datos/ANDES_SWE_Cortes/ANDES_SWE_WY2014_Teno.nc')
+SWE2 = xr.open_dataset('datos/ANDES_SWE_Cortes/ANDES_SWE_WY2014_Uble.nc')
 
-# SWE = [SWE0.SWE.sel(time=interval),
-#        SWE1.SWE.sel(time=interval),
-#        SWE2.SWE.sel(time=interval)]
+SWE = [SWE0.SWE.sel(time=interval),
+       SWE1.SWE.sel(time=interval),
+       SWE2.SWE.sel(time=interval)]
 
-# del SWE0, SWE1, SWE2
+del SWE0, SWE1, SWE2
 
-# dSWE = [swe.diff('time') for swe in SWE]
+dSWE = [swe.diff('time') for swe in SWE]
 
-# # dem0 = xr.open_dataset('datos/topography/basins/RioMaipoEnElManzano.nc')
-# # dem1 = xr.open_dataset(
-# #     'datos/topography/basins/RioTenoDespuesDeJuntaConClaro.nc')
-# # dem2 = xr.open_dataset('datos/topography/basins/RioUbleEnSanFabianN2.nc')
+tot_pix = np.array([451481, 91890, 93014])
+SCA_cortes = [xr.where(swe > 50, 1, 0) for swe in SWE]
+SCA_cortes = [sca.sum(dim=['lat', 'lon']).to_series() for sca in SCA_cortes]
+SCA_cortes = pd.concat(SCA_cortes, axis=1)
+SCA_cortes.columns = SCA.columns
 
-# # dem = [dem0.Band1, dem1.Band1, dem2.Band1]
-# # del dem0, dem1, dem2
 
-# # new_dem = []
-# # for d, swe in zip(dem, SWE):
-# #     nd = d.reindex({'lat': swe.lat, 'lon': swe.lon}, method='nearest')
-# #     new_dem.append(nd)
-# # del dem
-# # dem = new_dem
+# dem0 = xr.open_dataset('datos/topography/basins/RioMaipoEnElManzano.nc')
+# dem1 = xr.open_dataset(
+#     'datos/topography/basins/RioTenoDespuesDeJuntaConClaro.nc')
+# dem2 = xr.open_dataset('datos/topography/basins/RioUbleEnSanFabianN2.nc')
 
-# melt = [dswe.where(dswe < 0).mean(dim=['lat', 'lon']).to_series()
-#         for dswe in dSWE]
-# melt = pd.concat(melt, axis=1)*-1
-# melt.columns = pr.columns
-# melt = melt.reindex(pr.index).interpolate(method='cubicspline')/24
+# dem = [dem0.Band1, dem1.Band1, dem2.Band1]
+# del dem0, dem1, dem2
+
+# new_dem = []
+# for d, swe in zip(dem, SWE):
+#     nd = d.reindex({'lat': swe.lat, 'lon': swe.lon}, method='nearest')
+#     new_dem.append(nd)
+# del dem
+# dem = new_dem
+
+melt = [dswe.where(dswe < 0).mean(dim=['lat', 'lon']).to_series()
+        for dswe in dSWE]
+melt = pd.concat(melt, axis=1)*-1
+melt.columns = pr.columns
+melt = melt.reindex(pr.index).interpolate(method='cubicspline')/24
 # %%
 # =============================================================================
 # compute flood stats
@@ -442,6 +466,12 @@ quickflows = quickflows.where(quickflows > 0).fillna(0)
 
 # stats = stats.round(2)
 # %%
+# =============================================================================
+# MAIPO EN EL MANZANO
+# =============================================================================
+
+
+# %%
 plt.rc("font", size=18)
 fig, ax = plt.subplots(2, 3, figsize=(14, 4), sharex='col',
                        gridspec_kw={'height_ratios': [1, 2]},
@@ -465,22 +495,24 @@ for i, axis in enumerate(ax[0, :]):
              pr.iloc[:, i], color='cadetblue',
              width=0.05, align='edge', label='Precipitation',
              edgecolor='k', linewidth=0.0, zorder=1)
-    # axis.bar(melt.index-datetime.timedelta(hours=1),
-    #          melt.iloc[:, i], edgecolor='k', linewidth=0.0, color='darkviolet',
-    #          width=0.05, align='edge', label='Snowmelt',
-    #          bottom=pr.iloc[:, i].fillna(0), zorder=2)
+    axis.bar(melt.index-datetime.timedelta(hours=1),
+             melt.iloc[:, i], edgecolor='k', linewidth=0.0, color='darkviolet',
+             width=0.05, align='edge', label='Snowmelt',
+             bottom=pr.iloc[:, i].fillna(0), zorder=2)
     axis.set_yticks(np.arange(0, 9+1.5, 1.5))
     axis.set_yticklabels([0, "", 3, "", 6, "", 9])
 
     axis.grid(True, which='major', ls=":", zorder=0)
     axis.set_title(titles[i], loc='left')
+    if i == 0:
+        axis.legend(frameon=False, ncol=1, loc=(0, 0.58), fontsize=9)
 
     # box = stats.iloc[i, :]
     # box = ['{:.1f}'.format((round(box[i], 1))) for i in range(len(box))]
 
     # textstr = '\n'.join([n+b+u for n, b, u in zip(names, box, units)])
     # axis.text(0.6, 1.5, textstr, transform=axis.transAxes, fontsize=10,
-    #           verticalalignment='top', bbox=props)
+    #            verticalalignment='top', bbox=props)
     # axis.set_ylim(0,6)
 
 
@@ -504,6 +536,10 @@ for i, axis in enumerate(ax[1, :]):
     axis1.plot(pr.index,
                ros/areas.iloc[i],
                color='tab:green', label='ROS Area')
+    axis1.plot(pr.index, SCA.iloc[:, i].where(pr.iloc[:, i] > 0), color='tab:blue',
+               label='SCA')
+    axis1.plot(pr.index, SCA.iloc[:, i], color='tab:blue', alpha=0.2,
+               ls="--")
 
     if i < 2:
         axis1.set_yticklabels([""]*5)
@@ -527,7 +563,8 @@ ax[-1, 0].set_ylabel('$(m^3/s)$')
 ax[0, 0].set_ylabel('$(mm/h)$')
 ax[1, 0].plot([], [], color='tab:green', label='ROS Area')
 ax[1, 0].plot([], [], color='tab:red', label='Pluvial Area')
-ax[1, 0].legend(frameon=False, fontsize=14, loc='upper left')
+ax[1, 0].plot([], [], color='tab:blue', label='SCA')
+ax[1, 0].legend(frameon=False, fontsize=9, loc=(0, 0.98), ncol=3)
 
 axis1.set_ylabel('Fraction of\ntotal Area (-)')
 
@@ -536,7 +573,7 @@ box = ax[1, 0].get_position()
 fig.text(box.xmin*1.15, box.ymin*-1.15,
          '\nAug\n2013', ha='center', va='center')
 
-# plt.savefig('plots/caseofstudy_Aug2013/flood_study.pdf',
+# plt.savefig('plots/caseofstudy_Aug2013/flood_study_stodomingo.pdf',
 #             dpi=150, bbox_inches='tight')
 # ax[1, 1].plot(pr.index, (q1-baseflow1)[interval2], color='darkblue')
 # ax[1, 2].plot(pr.index, (q2-baseflow2)[interval2], color='darkblue')

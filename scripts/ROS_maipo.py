@@ -42,14 +42,36 @@ isotermas0 = pd.read_csv(
 isotermas0.index = pd.to_datetime(isotermas0.index)
 isotermas0 = isotermas0.resample("d").fillna(method="ffill")
 
+int_func = interp1d(hypso.height, hypso.fArea)
+pluv_area = int_func(isotermas0['STODOMINGO']-300)
+pluv_area = pd.Series(pluv_area, index=isotermas0.index)
+
+
 snowlimits = pd.read_csv(
     "datos/snowlimits_maipomanzano.csv", index_col=0).dropna(how="all")
 snowlimits.index = pd.to_datetime(snowlimits.index)
 
 
+SCA = pd.read_csv('datos/snowcovers_maipomanzano.csv',
+                  index_col=0).dropna(how='all')
+SCA.index = pd.to_datetime(SCA.index)
+SCA = SCA['IANIGLA']/100
+
+
+ROS_AREA = SCA-(1-pluv_area)
+
 pr_cr2met = pd.read_csv("datos/cr2met/pr_RioMaipoEnElManzano.csv", index_col=0)
 pr_cr2met.index = pd.to_datetime(pr_cr2met["date"])
 pr_cr2met.drop("date", axis=1, inplace=True)
+
+pr_mm = pd.read_csv('datos/estaciones/pr_laobra.csv', dtype=str)
+pr_mm.index = pd.to_datetime(
+    pr_mm.iloc[:, 0]+"-"+pr_mm.iloc[:, 1]+"-"+pr_mm.iloc[:, 2])
+pr_mm = pr_mm.iloc[:, 3]
+pr_mm = pd.to_numeric(pr_mm)
+
+ROS_AREA = np.clip(ROS_AREA.reindex(pr_mm.index), 1, 0)
+ROS_AREA = ROS_AREA.where(pr_mm > 3)
 
 
 qinst_mm = pd.read_csv(
@@ -168,62 +190,62 @@ gc.collect()
 # else:
 #     raise Exception("'how' method not valid")
 # gc.collect()
-# %%
-# =============================================================================
-# CORTES+CR2MET
-# =============================================================================
-how = "whole"
-if how == "whole":
-    paths = "datos/ANDES_SWE_Cortes/regrid_cr2met/RioMaipoEnElManzano/ANDES*"
-    paths = glob(paths)
-    SWE = xr.open_mfdataset(paths).SWE
+# # %%
+# # =============================================================================
+# # CORTES+CR2MET
+# # =============================================================================
+# how = "whole"
+# if how == "whole":
+#     paths = "datos/ANDES_SWE_Cortes/regrid_cr2met/RioMaipoEnElManzano/ANDES*"
+#     paths = glob(paths)
+#     SWE = xr.open_mfdataset(paths).SWE
 
-    paths = 'datos/ANDES_SWE_Cortes/regrid_cr2met/ANDES_dSWE_*.nc'
-    dSWE = xr.open_mfdataset(paths).SWE
-    dSWE = dSWE.reindex({'time': SWE.time.to_series().index})
-    paths = "datos/cr2met/RioMaipoEnElManzano_CR2MET_t2m_1979-2020.nc"
-    T2M = xr.open_dataset(paths).t2m
-    T2M = T2M.reindex({"time": SWE.time.to_series().index})
+#     paths = 'datos/ANDES_SWE_Cortes/regrid_cr2met/ANDES_dSWE_*.nc'
+#     dSWE = xr.open_mfdataset(paths).SWE
+#     dSWE = dSWE.reindex({'time': SWE.time.to_series().index})
+#     paths = "datos/cr2met/RioMaipoEnElManzano_CR2MET_t2m_1979-2020.nc"
+#     T2M = xr.open_dataset(paths).t2m
+#     T2M = T2M.reindex({"time": SWE.time.to_series().index})
 
-    paths = "datos/cr2met/RioMaipoEnElManzano_CR2MET_pr_1979-2020.nc"
-    PR = xr.open_dataset(paths).pr
-    PR = PR.reindex({"time": SWE.time.to_series().index})
+#     paths = "datos/cr2met/RioMaipoEnElManzano_CR2MET_pr_1979-2020.nc"
+#     PR = xr.open_dataset(paths).pr
+#     PR = PR.reindex({"time": SWE.time.to_series().index})
 
-    ROS_CORTESCR2MET = np.where((SWE > 10) & (T2M > 0) & (PR > 3) & (dSWE < 0),
-                                True, False)
-    ROS = np.empty(ROS_CORTESCR2MET.shape[0])
-    for i in range(ROS_CORTESCR2MET.shape[0]):
-        ROS[i] = ROS_CORTESCR2MET[i, :, :].sum()
+#     ROS_CORTESCR2MET = np.where((SWE > 10) & (T2M > 0) & (PR > 3) & (dSWE < 0),
+#                                 True, False)
+#     ROS = np.empty(ROS_CORTESCR2MET.shape[0])
+#     for i in range(ROS_CORTESCR2MET.shape[0]):
+#         ROS[i] = ROS_CORTESCR2MET[i, :, :].sum()
 
-    ROS_CORTESCR2MET = pd.Series(ROS, index=SWE.time.values)
-    ROS_CORTESCR2MET = ROS_CORTESCR2MET/191
-    del SWE, T2M, PR, paths
-elif how == "centroid":
-    paths = "datos/ANDES_SWE_Cortes/regrid_cr2met/RioMaipoEnElManzano/ANDES*"
-    paths = glob(paths)
-    SWE = xr.open_mfdataset(paths).SWE
-    SWE = SWE.sel(lat=mm_centroid[1], lon=mm_centroid[0],
-                  method="nearest").to_series()
+#     ROS_CORTESCR2MET = pd.Series(ROS, index=SWE.time.values)
+#     ROS_CORTESCR2MET = ROS_CORTESCR2MET/191
+#     del SWE, T2M, PR, paths
+# elif how == "centroid":
+#     paths = "datos/ANDES_SWE_Cortes/regrid_cr2met/RioMaipoEnElManzano/ANDES*"
+#     paths = glob(paths)
+#     SWE = xr.open_mfdataset(paths).SWE
+#     SWE = SWE.sel(lat=mm_centroid[1], lon=mm_centroid[0],
+#                   method="nearest").to_series()
 
-    paths = "datos/cr2met/RioMaipoEnElManzano_CR2MET_t2m_1979-2020.nc"
-    T2M = xr.open_dataset(paths).t2m
-    T2M = T2M.sel(lat=mm_centroid[1], lon=mm_centroid[0],
-                  method="nearest")
-    T2M = T2M.reindex({"time": SWE.index}).to_series()
+#     paths = "datos/cr2met/RioMaipoEnElManzano_CR2MET_t2m_1979-2020.nc"
+#     T2M = xr.open_dataset(paths).t2m
+#     T2M = T2M.sel(lat=mm_centroid[1], lon=mm_centroid[0],
+#                   method="nearest")
+#     T2M = T2M.reindex({"time": SWE.index}).to_series()
 
-    paths = "datos/cr2met/RioMaipoEnElManzano_CR2MET_pr_1979-2020.nc"
-    PR = xr.open_dataset(paths).pr
-    PR = PR.sel(lat=mm_centroid[1], lon=mm_centroid[0],
-                method="nearest")
-    PR = PR.reindex({"time": SWE.index}).to_series()
+#     paths = "datos/cr2met/RioMaipoEnElManzano_CR2MET_pr_1979-2020.nc"
+#     PR = xr.open_dataset(paths).pr
+#     PR = PR.sel(lat=mm_centroid[1], lon=mm_centroid[0],
+#                 method="nearest")
+#     PR = PR.reindex({"time": SWE.index}).to_series()
 
-    ROS_CORTESCR2MET = np.where((SWE > 10) & (T2M > 0) & (PR > 3),
-                                True, False)
-    ROS_CORTESCR2MET = pd.Series(ROS_CORTESCR2MET,
-                                 index=SWE.index).dropna()
-    del T2M, SWE, PR, paths
-else:
-    raise Exception("'how' method not valid")
+#     ROS_CORTESCR2MET = np.where((SWE > 10) & (T2M > 0) & (PR > 3),
+#                                 True, False)
+#     ROS_CORTESCR2MET = pd.Series(ROS_CORTESCR2MET,
+#                                  index=SWE.index).dropna()
+#     del T2M, SWE, PR, paths
+# else:
+#     raise Exception("'how' method not valid")
 
 # gc.collect()
 # %%
@@ -251,17 +273,17 @@ ROS1 = pd.concat([pd.concat(list(ROS1.values())[i].values(), axis=1)
                   for i in range(len(SL_cond.columns))], axis=1)
 
 pairs = ["MODIS_H50 - STODOMINGO",
-         "CORTES - CR2MET",
+         # "CORTES - CR2MET",
          # "CORTES_H50 - CR2MET_H50_MM",
          "CORTES - CR2MET - ERA5"]
 
 ROS1["CORTES - CR2MET - ERA5"] = ROS_CCE.reindex(times)
-ROS1["CORTES - CR2MET"] = ROS_CORTESCR2MET.reindex(times)
+# ROS1["CORTES - CR2MET"] = ROS_CORTESCR2MET.reindex(times)
 ROS1 = ROS1[pairs]
 
 ROS = ROS1 > 0
 ROS["CORTES - CR2MET - ERA5"] = ROS_CCE.reindex(times) > 0.1
-ROS["CORTES - CR2MET"] = ROS_CORTESCR2MET.reindex(times) > 0.1
+# ROS["CORTES - CR2MET"] = ROS_CORTESCR2MET.reindex(times) > 0.1
 ROS = ROS[pairs]
 
 # ROS["ERA5LAND"] = ROS_ERA5LAND.reindex(times) > 0.2

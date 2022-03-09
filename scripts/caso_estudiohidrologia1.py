@@ -35,10 +35,11 @@ import cartopy.feature as cf
 # =============================================================================
 # big time interval and graph time interval
 # =============================================================================
-interval = slice(datetime.datetime(2013, 8, 6),
-                 datetime.datetime(2013, 8, 15))
-interval2 = slice(datetime.datetime(2013, 8, 11),
-                  datetime.datetime(2013, 8, 16))
+
+interval = slice(datetime.datetime(2005, 10, 15),
+                 datetime.datetime(2005, 10, 25))
+interval2 = slice(datetime.datetime(2015, 7, 28),
+                  datetime.datetime(2015, 8, 10))
 
 
 # %%
@@ -137,10 +138,10 @@ polygons.plot(column='max_pluv_area',
 
 # polygons.plot(polygons.gauge_name, ax=ax,facecolor=None)
 gauges = ['Rio Maipo En El Manzano',
-          'Rio Cachapoal En Pte Termas De Cauquenes',
           'Rio Teno Despues De Junta Con Claro',
-          'Rio Lircay En Puente Las Rastras',
-          'Rio Ancoa En El Morro',
+          'Rio Colorado En Junta Con Palos',
+          'Rio Claro En Camarico',
+          'Rio Achibueno En La Recova',
           'Rio Uble En San Fabian N 2']
 
 polygons.boundary.plot(ax=ax, lw=0.5, color='k', transform=ccrs.PlateCarree())
@@ -192,8 +193,8 @@ for i, g in enumerate(gauges):
     title = g.split(" ")
     title = " ".join(title[:len(title)//2])+"\n" + \
         " ".join(title[len(title)//2:])
-    if i == 1:
-        title = 'Rio Cachapoal En\nPte Termas De\nCauquenes'
+    # if i == 1:
+    # title = 'Rio Cachapoal En\nPte Termas De\nCauquenes'
     axis.set_title(title, loc='left', fontsize=17)
     if i > 2:
         axis.yaxis.tick_right()
@@ -216,5 +217,5 @@ axes[-2].set_ylabel('Runoff $(m^3/s)$')
 # axes[2].xaxis.set_minor_locator(mpl.dates.HourLocator(byhour=np.arange(0, 24, 6)))
 # axes.tick_params(axis='x', which='major', rotation=45)
 
-plt.savefig('plots/caseofstudy_Aug2013/runoff_basins.pdf',
-            dpi=150, bbox_inches='tight')
+# plt.savefig('plots/caseofstudy_Jun2010/runoff_basins.pdf',
+#             dpi=150, bbox_inches='tight')

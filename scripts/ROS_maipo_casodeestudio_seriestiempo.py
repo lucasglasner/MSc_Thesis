@@ -215,12 +215,13 @@ def local_minimum_filter(ts, size):
 
 
 # %%
-date = "2013-08-11"
-# date = "2013-09-11"
-interval = datetime.datetime.strptime(date, '%Y-%m-%d')
-interval = slice(interval-datetime.timedelta(days=6),
-                 interval+datetime.timedelta(days=4))
+yr, month, day = 2010, 6, 23
+interval = slice(datetime.datetime(yr, month, day)-datetime.timedelta(days=3),
+                 datetime.datetime(yr, month, day)+datetime.timedelta(days=8))
 
+interval = slice(datetime.datetime(2005, 10, 15),
+                 datetime.datetime(2005, 10, 25))
+# %%
 # =============================================================================
 # basin polygon and hypsometry
 # =============================================================================
@@ -271,6 +272,15 @@ pr_mm.index = pd.to_datetime(pr_mm['Fecha'])
 pr_mm = pr_mm['Valor'].drop_duplicates()
 pr_mm = pr_mm.reindex(pd.date_range(interval.start,
                                     interval.stop, freq='h')).fillna(0)
+
+pr_laobra = pd.read_csv('datos/estaciones/pr_laobra.csv', dtype=str)
+pr_laobra.index = pd.to_datetime(
+    pr_laobra.iloc[:, 0]+"-"+pr_laobra.iloc[:, 1]+"-"+pr_laobra.iloc[:, 2])
+pr_laobra = pr_laobra.iloc[:, 3]
+pr_laobra = pd.to_numeric(pr_laobra).reindex(pr_mm.index)/2
+pr_laobra = pr_laobra.reindex(pr_mm.index).fillna(method='bfill')/24
+# pr_laobra = np.clip(pr_laobra,0,100)
+
 # =============================================================================
 # Estacion dgf
 # =============================================================================
@@ -324,14 +334,14 @@ ax[0].errorbar(H0_mm[interval].index, H0_mm[interval],
                marker='o', ms=7, mec='k', label='Zero Degree Level',
                zorder=9,
                capsize=3)
-ax[0].set_yticks(np.arange(1e3, 5e3, 1e3))
-ax[0].set_ylim(800, 4.3e3)
+# ax[0].set_yticks(np.arange(1e3, 5e3, 1e3))
+# ax[0].set_ylim(800, 4.3e3)
 ax[0].set_ylabel('Height\n$(m.a.s.l)$')
 ax[0].legend(frameon=False, loc=(0, 1.01), ncol=2, fontsize=16)
 ax00 = ax[0].twinx()
 ax00.plot(datos_dgf[interval].iloc[:, 7], color='k', alpha=0.3, label='SWR')
-ax00.set_ylim(0, 5e2)
-ax00.set_yticks(np.arange(100, 500, 100))
+# ax00.set_ylim(0, 5e2)
+# ax00.set_yticks(np.arange(100, 500, 100))
 ax00.set_ylabel('SWR\n$(W/m^2)$')
 ax[0].grid(ls=":")
 
@@ -347,7 +357,7 @@ ax[1].bar(pr_mm[interval].index,
 #           zorder=0, color='cadetblue', label='CR2MET Basin Mean',
 #           width=1, edgecolor='k')
 
-ax[1].bar(pr_mm[interval].index, pr_mm[interval], alpha=0.5,
+ax[1].bar(pr_mm[interval].index, pr_laobra[interval], alpha=0.5,
           zorder=0, color='cadetblue', label='MaipoEnElManzano',
           width=1/24)
 ax[1].set_ylim(0, 7.2)
@@ -357,8 +367,8 @@ ax[1].legend(loc=(0, 1.01), fontsize=16, frameon=False, ncol=2)
 ax11 = ax[1].twinx()
 ax11.plot(datos_dgf[interval].index, datos_dgf[interval].iloc[:, 5],
           color="k", lw=1, alpha=0.8)
-ax11.set_ylim(2, 25)
-ax11.set_yticks(np.arange(5, 30, 5))
+# ax11.set_ylim(2, 25)
+# ax11.set_yticks(np.arange(5, 30, 5))
 ax11.set_ylabel('Temperature\n$(°C)$')
 
 # =============================================================================
@@ -366,13 +376,13 @@ ax11.set_ylabel('Temperature\n$(°C)$')
 # =============================================================================
 
 ax[2].plot(datos_dgf[interval].iloc[:, 8]+1e3, color='darkorchid', zorder=10)
-ax[2].set_ylim(947, 965)
-ax[2].set_yticks(np.arange(950, 965, 3))
+# ax[2].set_ylim(947, 965)
+# ax[2].set_yticks(np.arange(950, 965, 3))
 ax[2].set_ylabel('Barometric\nPressure $(mb)$')
 ax22 = ax[2].twinx()
 ax22.plot(datos_dgf[interval].iloc[:, 12], color='tab:green')
-ax22.set_ylim(0, 6)
-ax22.set_yticks(np.arange(1, 6, 1))
+# ax22.set_ylim(0, 6)
+# ax22.set_yticks(np.arange(1, 6, 1))
 ax22.set_ylabel('Wind Speed\n$(m/s)$')
 
 # =============================================================================
@@ -380,8 +390,8 @@ ax22.set_ylabel('Wind Speed\n$(m/s)$')
 # =============================================================================
 
 ax[3].plot(qinst_mm[interval], color='darkblue', label='Surface Runoff')
-ax[3].set_ylim(35, 73)
-ax[3].set_yticks([40, 50, 60, 70])
+# ax[3].set_ylim(35, 73)
+# ax[3].set_yticks([40, 50, 60, 70])
 ax[3].plot(local_minimum_filter(qinst_mm[interval], 20)[0],
            color='chocolate', label='Base Flow')
 ax[3].set_ylabel('Runoff\n$(m^3/s)$')
@@ -400,12 +410,17 @@ for axis in ax:
     for maj in axis.xaxis.get_major_ticks():
         maj.label.set_fontsize(18)
     for m in axis.xaxis.get_minor_ticks():
-        m.label.set_fontsize(12)
+        m.label.set_fontsize(0)
     axis.tick_params(axis="x", which='minor', rotation=45)
 
 box = ax[-1].get_position()
 fig.text(box.xmin, box.ymin*-0.6,
-         '\nAug\n2013', ha='center', va='center')
+         '\n'+str(interval.start.month)+'\n'+str(interval.start.year),
+         ha='center', va='center')
+# fig.text(box.xmin+.39, box.ymin*-0.6,
+#          '\n'+str(interval.stop.month)+'\n'+str(interval.stop.year),
+#          ha='center', va='center')
 
-plt.savefig('plots/caseofstudy_Aug2013/ROS_maipo_caseofstudy.pdf', dpi=150,
-            bbox_inches='tight')
+
+# plt.savefig('plots/caseofstudy_Sep-Ago2015/ROS_maipo_caseofstudy.pdf', dpi=150,
+#             bbox_inches='tight')

@@ -88,8 +88,13 @@ coast_shift = [dem.sel(lat=lat, lon=lon+1, method='nearest').item()
                for lat, lon in zip(coast.lat, coast.lon)]
 
 
-H0_coast = [H0.sel(lat=lat, lon=lon, method='nearest').to_series()
-            for lat, lon in zip(coast.lat, coast.lon)]
+H0_coast = []
+coords = []
+for lat, lon in zip(coast.lat, coast.lon):
+    h0 = H0.sel(lat=lat, lon=lon, method='nearest')
+    lt, ln = h0.lat.item(), h0.lon.item()
+    coords.append((lt, ln))
+    H0_coast.append(h0.to_series())
 H0_coast = pd.concat(H0_coast, axis=1)
 H0_coast.columns = list(zip(coast.lat, coast.lon))
 
