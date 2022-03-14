@@ -220,11 +220,11 @@ def local_minimum_filter(ts, size):
 plt.rc('font', size=18)
 
 # %%
-# date = "2010-06-23"
-date = "%YR%"
+date = "2008-06-04"
+# date = "%YR%"
 yr, month, day = [int(n) for n in date.split("-")]
-interval = slice(datetime.datetime(yr, month, day)-datetime.timedelta(days=8),
-                 datetime.datetime(yr, month, day)+datetime.timedelta(days=8))
+interval = slice(datetime.datetime(yr, month, day)-datetime.timedelta(days=10),
+                 datetime.datetime(yr, month, day)+datetime.timedelta(days=2,hours=6))
 
 # interval = slice(datetime.datetime(2005, 10, 15),
 # datetime.datetime(2005, 10, 25))
@@ -274,11 +274,22 @@ qinst_mm = pd.read_csv("datos/estaciones/qinst_" +
                        cuenca+".csv", index_col=0).qinst_mm
 qinst_mm.index = pd.to_datetime(qinst_mm.index)
 
-pr_mm = pd.read_csv('datos/estaciones/pr_RioMaipoEnElManzano_2013-08.csv')
+pr_mm = pd.read_csv('datos/estaciones/station_RioMaipoEnElManzano_2000-01-21_2021-01-01.csv')
 pr_mm.index = pd.to_datetime(pr_mm['Fecha'])
 pr_mm = pr_mm['Valor'].drop_duplicates()
 pr_mm = pr_mm.reindex(pd.date_range(interval.start,
                                     interval.stop, freq='h')).fillna(0)
+
+pr_qm = pd.read_csv('datos/estaciones/station_QuebradaDeMacul_2000-01-21_2021-01-01.csv')
+pr_qm.index = pd.to_datetime(pr_qm.Fecha)
+pr_qm = pr_qm['Valor'].drop_duplicates()
+pr_qm = pr_qm.reindex(pd.date_range(interval.start,interval.stop,freq='h')).fillna(0)
+
+pr_mapocho = pd.read_csv('datos/estaciones/station_RioMapochoEnLosAlmendros_2000-01-21_2021-01-01.csv')
+pr_mapocho.index = pd.to_datetime(pr_mapocho.Fecha)
+pr_mapocho = pr_mapocho['Valor'].drop_duplicates()
+pr_mapocho = pr_mapocho.reindex(pd.date_range(interval.start,interval.stop,freq='h')).fillna(0)
+
 
 pr_laobra = pd.read_csv('datos/estaciones/pr_laobra.csv', dtype=str)
 pr_laobra.index = pd.to_datetime(
@@ -342,16 +353,16 @@ ax[0].errorbar(H0_mm[interval].index, H0_mm[interval],
                marker='o', ms=7, mec='k', label='Zero Degree Level',
                zorder=9,
                capsize=3)
-# ax[0].set_yticks(np.arange(1e3, 5e3, 1e3))
-# ax[0].set_ylim(800, 4.3e3)
+ax[0].set_ylim(900, 4e3)
+ax[0].set_yticks(np.arange(1e3,4e3+1e3,1e3))
 ax[0].set_ylabel('Height\n$(m.a.s.l)$')
 ax[0].legend(frameon=False, loc=(0, 1.01), ncol=2, fontsize=16)
 ax00 = ax[0].twinx()
 ax00.plot(datos_dgf[interval].iloc[:, 7], color='k', alpha=0.3, label='SWR')
-# ax00.set_ylim(0, 5e2)
-# ax00.set_yticks(np.arange(100, 500, 100))
+ax00.set_ylim(0, 4e2)
+ax00.set_yticks(np.arange(0, 400+100, 100))
 ax00.set_ylabel('SWR\n$(W/m^2)$')
-ax[0].grid(ls=":")
+
 
 # =============================================================================
 # plot precipitation and temperature
@@ -365,18 +376,18 @@ ax[1].bar(pr_mm[interval].index,
 #           zorder=0, color='cadetblue', label='CR2MET Basin Mean',
 #           width=1, edgecolor='k')
 
-ax[1].bar(pr_mm[interval].index, pr_laobra[interval], alpha=0.5,
-          zorder=0, color='cadetblue', label='LaObra',
+ax[1].bar(pr_mm[interval].index+pd.Timedelta(hours=1), pr_laobra[interval], alpha=0.5,
+          zorder=0, color='cadetblue', label='La Obra',
           width=pd.Timedelta(hours=1))
-ax[1].set_ylim(0, 7.2)
+ax[1].set_ylim(0, 5)
 ax[1].set_yticks([1, 3, 5, 7])
 ax[1].set_ylabel('Precipitation\n$(mm/hour)$')
 ax[1].legend(loc=(0, 1.01), fontsize=16, frameon=False, ncol=2)
 ax11 = ax[1].twinx()
 ax11.plot(datos_dgf[interval].index, datos_dgf[interval].iloc[:, 5],
           color="k", lw=1, alpha=0.8)
-# ax11.set_ylim(2, 25)
-# ax11.set_yticks(np.arange(5, 30, 5))
+# ax11.set_ylim(0,5)
+ax11.set_yticks(np.arange(5, 25, 5))
 ax11.set_ylabel('Temperature\n$(°C)$')
 
 # =============================================================================
@@ -385,12 +396,12 @@ ax11.set_ylabel('Temperature\n$(°C)$')
 
 ax[2].plot(datos_dgf[interval].iloc[:, 8]+1e3, color='darkorchid', zorder=10)
 # ax[2].set_ylim(947, 965)
-# ax[2].set_yticks(np.arange(950, 965, 3))
+ax[2].set_yticks(np.arange(948, 962, 3))
 ax[2].set_ylabel('Barometric\nPressure $(mb)$')
 ax22 = ax[2].twinx()
 ax22.plot(datos_dgf[interval].iloc[:, 12], color='tab:green')
-# ax22.set_ylim(0, 6)
-# ax22.set_yticks(np.arange(1, 6, 1))
+ax22.set_ylim(0, 3.5)
+ax22.set_yticks(np.arange(1, 3+1, 1))
 ax22.set_ylabel('Wind Speed\n$(m/s)$')
 
 # =============================================================================
@@ -399,23 +410,24 @@ ax22.set_ylabel('Wind Speed\n$(m/s)$')
 
 ax[3].plot(qinst_mm[interval], color='darkblue', label='Surface Runoff')
 # ax[3].set_ylim(35, 73)
-# ax[3].set_yticks([40, 50, 60, 70])
+ax[3].set_yticks(np.arange(0,550+150,150))
 ax[3].plot(local_minimum_filter(qinst_mm[interval], 20)[0],
            color='chocolate', label='Base Flow')
 ax[3].set_ylabel('Runoff\n$(m^3/s)$')
 ax[3].legend(loc=(0, 1.01), fontsize=16, ncol=2, frameon=False)
 
 for axis in ax:
-    # axis.axvspan("2013-08-06", "2013-08-09", color='k', alpha=0.15)
-    # axis.axvspan("2013-08-11", "2013-08-14", color='k', alpha=0.15)
+    axis.axvspan("2008-05-26", "2008-05-28", color='k', alpha=0.15)
+    axis.axvspan("2008-06-03", "2008-06-06", color='k', alpha=0.15)
     axis.set_xlim(interval.start+pd.Timedelta(days=1),
                   interval.stop)
     # axis.tick_params(axis='x',rotation=45)
-    axis.grid(which='both', ls=":", axis="x")
+    axis.grid(which='major', ls=":", axis="x")
+    axis.grid(which='major', ls=":", axis="y")
     axis.xaxis.set_minor_locator(mpl.dates.HourLocator(interval=6))
     axis.xaxis.set_minor_formatter(mpl.dates.DateFormatter('%H'))
     axis.xaxis.set_major_locator(mpl.dates.DayLocator(interval=1))
-    axis.xaxis.set_major_formatter(mpl.dates.DateFormatter('\n%d'))
+    axis.xaxis.set_major_formatter(mpl.dates.DateFormatter('%d'))
     for maj in axis.xaxis.get_major_ticks():
         maj.label.set_fontsize(18)
     for m in axis.xaxis.get_minor_ticks():
@@ -424,10 +436,10 @@ for axis in ax:
 
 box = ax[-1].get_position()
 fig.text(box.xmin, box.ymin*-0.6,
-         '\n'+str(interval.start.month)+'\n'+str(interval.start.year),
+         str(interval.start.month)+'\n'+str(interval.start.year),
          ha='center', va='center')
-fig.text(box.xmax, box.ymin*-0.6,
-         '\n'+str(interval.stop.month)+'\n'+str(interval.stop.year),
+fig.text(box.xmax-0.41, box.ymin*-0.6,
+         str(interval.stop.month)+'\n'+str(interval.stop.year),
          ha='center', va='center')
 
 

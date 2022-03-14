@@ -35,10 +35,11 @@ import cartopy.feature as cf
 # =============================================================================
 # big time interval and graph time interval
 # =============================================================================
-date = "2015-08-05"
-interval = slice(datetime.datetime(2015, 7, 25),
-                 datetime.datetime(2015, 8, 10))
-
+date = "2008-06-04"
+# date = "%YR%"
+yr, month, day = [int(n) for n in date.split("-")]
+interval = slice(datetime.datetime(yr, month, day)-datetime.timedelta(days=9),
+                 datetime.datetime(yr, month, day)+datetime.timedelta(days=3))
 
 # %%
 # =============================================================================
@@ -52,7 +53,7 @@ runoff = pd.read_csv('datos/runoff_gauges_dataset.csv', index_col=0)
 runoff.index = pd.to_datetime(runoff.index)
 runoff2 = runoff[basin_attributes.gauge_name]
 runoff = runoff[interval]
-runoff = runoff.T.dropna(how='all').T
+# runoff = runoff
 
 
 # %%
@@ -131,14 +132,14 @@ polygons.plot(column='max_pluv_area',
                            'fraction': 0.021,
                            'pad': 0.08,
                            'label': 'Maximum pluvial\narea during rain $(-)$',
-                           'ticks': [0.3, 0.5, 0.7, 0.9]})
+                           'ticks': [0.4, 0.55, 0.7, 0.85, 1.0]})
 
 
 # polygons.plot(polygons.gauge_name, ax=ax,facecolor=None)
-gauges = ['Rio Mapocho En Los Almendros',
+gauges = ['Rio Aconcagua En Chacabuquito',
           'Rio Maipo En El Manzano',
-          'Rio Cachapoal En Pte Termas De Cauquenes',
           'Rio Teno Despues De Junta Con Claro',
+          'Rio Lircay En Puente Las Rastras',
           'Rio Melado En El Salto',
           'Rio Uble En San Fabian N 2']
 
@@ -181,6 +182,9 @@ del ax0, ax1, ax2, ax3, ax4, ax5
 for i, g in enumerate(gauges):
     axis = axes[i]
     axis.plot(runoff[g], color=colors[i, :], lw=2)
+    ma = np.round(runoff[g].max()/100,0)*100
+    axis.set_ylim(0,runoff[g].max()*1.05)
+    axis.set_yticks(np.arange(0,ma+ma//4,ma//4))
     axis.set_xlim(interval.start, interval.stop)
     axis.set_xticks(runoff.index[:: 48])
     axis.set_xticklabels([])

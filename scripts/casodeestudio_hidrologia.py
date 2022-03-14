@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib.ticker import FormatStrFormatter
 from glob import glob
-from functions import add_labels
+from functions import add_labels, local_minimum_filter
 import sys
 sys.path.append('functions.py')
 
@@ -37,8 +37,11 @@ sys.path.append('functions.py')
 # =============================================================================
 # big time interval and graph time interval
 # =============================================================================
-interval = slice(datetime.datetime(2013, 8, 6),
-                 datetime.datetime(2013, 8, 15))
+date = "2008-06-04"
+# date = "%YR%"
+yr, month, day = [int(n) for n in date.split("-")]
+interval = slice(datetime.datetime(yr, month, day)-datetime.timedelta(days=9),
+                 datetime.datetime(yr, month, day)+datetime.timedelta(days=3))
 
 date_interval = pd.date_range(interval.start, interval.stop, freq='h')
 basin_attributes = pd.read_csv('datos/basins_attributes.csv')
@@ -73,16 +76,18 @@ basins = ['Rio Maipo En El Manzano', 'Rio Teno Despues De Junta Con Claro',
 #                         'Rio Teno Despues De Junta Con Claro',
 #                         'Rio Uble En San Fabian N 2']
 # del pr_mm, pr_teno, pr_uble
+
 pr = []
 for basin in basins:
-    pp = pd.read_csv('datos/estaciones/pr_' +
-                     basin.replace(" ", "")+'_2013-08.csv', index_col=0)
+    pp = pd.read_csv('datos/estaciones/station_' +
+                     basin.replace(" ", "")+'_2000-01-21_2021-01-01.csv', index_col=0)
     pp.index = pd.to_datetime(pp['Fecha'])
-    pp = pp.reindex(date_interval)[interval]
-    pr.append(pp['Valor'])
+    pp = pp['Valor'].drop_duplicates()
+    pr.append(pp)
 
-pr = pd.concat(pr, axis=1)
+pr = pd.concat(pr, axis=1).reindex(date_interval)
 pr.columns = basins
+pr = pr[interval]
 
 pr_laobra = pd.read_csv('datos/estaciones/pr_laobra.csv', dtype=str)
 pr_laobra.index = pd.to_datetime(
@@ -111,16 +116,16 @@ int_func = [interp1d(hypso[b].height, hypso[b].fArea) for b in pr.columns]
 H0_mm = pd.read_csv('datos/stodomingo/isoterma0.csv',
                     index_col=0).squeeze()
 H0_mm.index = pd.to_datetime(H0_mm.index)-datetime.timedelta(hours=4)
-H0_mm = H0_mm['2013-08'].resample("h").interpolate('cubicspline')
+H0_mm = H0_mm[date[:-5]].resample("h").interpolate('cubicspline')
 H0_mm = H0_mm[interval]
 
 # era 5
-H0 = xr.open_dataset('datos/era5/H0_ERA5_2013.nc').deg0l
+H0 = xr.open_dataset('datos/era5/H0_ERA5_'+str(yr)+'.nc').deg0l
 H0_m = []
 for b in basins:
     lat, lon = basin_attributes.loc[b].gauge_lat, basin_attributes.loc[b].gauge_lon-1
     h0 = H0.sel(lat=lat, lon=lon, method='nearest').to_series()
-    H0_m.append(h0['2013-08'])
+    H0_m.append(h0[date[:-5]])
 
 H0_m = pd.concat(H0_m, axis=1)
 H0_m.columns = basins
@@ -128,6 +133,7 @@ H0_m = H0_m.resample('h').interpolate('cubicspline')[interval]
 
 del H0
 
+#%%
 # area pluvial con santo domingo
 pluv_area = [int_func[i](H0_mm-300)*areas[i]
              for i in range(pr.shape[1])]
@@ -168,7 +174,7 @@ SCA = pd.concat(SCA, axis=1)
 SCA.columns = pr.columns
 
 
-SCA = SCA['2013-08'].resample('h').interpolate('cubicspline')[interval]
+SCA = SCA[str(yr)].resample('h').interpolate('cubicspline')[interval]
 
 snow_area = [SCA[b]*areas.loc[b] for b in pr.columns]
 snow_area = pd.concat(snow_area, axis=1)
@@ -296,8 +302,8 @@ stats = stats.round(2)
 # =============================================================================
 # MAIPO EN EL MANZANO
 # =============================================================================
-interval3 = slice(datetime.datetime(2013, 8, 7, 6),
-                  datetime.datetime(2013, 8, 13, 3))
+# interval3 = slice(datetime.datetime(2006, 8, 7, 6),
+                  # datetime.datetime(2006, 8, 13, 3))
 plt.rc("font", size=18)
 fig, ax = plt.subplots(2, 1, figsize=(12, 4), sharex=True,
                        gridspec_kw={'height_ratios': [1, 2]})
@@ -316,10 +322,10 @@ ax[0].set_yticks([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
 ax[0].set_yticklabels([0, "", "", 3, "", "", 6, "", "", 9, "", "", 12])
 ax[0].set_ylim(0, 7)
 # ax[0].bar(melt.index, melt[basin], edgecolor="k")
-ax[0].bar(melt.index-datetime.timedelta(hours=1),
-          melt[basin], edgecolor='k', linewidth=0.0, color='darkviolet',
-          width=pd.Timedelta(hours=1), align='edge', label='Snowmelt',
-          bottom=pr[basin].fillna(0), zorder=2)
+# ax[0].bar(melt.index-datetime.timedelta(hours=1),
+          # melt[basin], edgecolor='k', linewidth=0.0, color='darkviolet',
+          # width=pd.Timedelta(hours=1), align='edge', label='Snowmelt',
+          # bottom=pr[basin].fillna(0), zorder=2)
 # # ax[0].bar(pr.index-datetime.timedelta(hours=1),
 # #             gin,
 # #             width=0.037, edgecolor='k', color='orange')
@@ -327,12 +333,12 @@ ax[0].set_ylabel('(mm/h)')
 ax[0].legend(frameon=False, loc=(0.01, 0.95), ncol=2, fontsize=12)
 ax[0].set_title(basin, loc='right')
 
-box = stats.loc[basin]
-box = ['{:.1f}'.format((round(box[i], 1))) for i in range(len(box))]
+# box = stats.loc[basin]
+# box = ['{:.1f}'.format((round(box[i], 1))) for i in range(len(box))]
 
-textstr = '\n'.join([n+b+u for n, b, u in zip(names, box, units)])
-ax[0].text(0.4, 1.5, textstr, transform=ax[0].transAxes, fontsize=10,
-           verticalalignment='top', bbox=props)
+# textstr = '\n'.join([n+b+u for n, b, u in zip(names, box, units)])
+# ax[0].text(0.4, 1.5, textstr, transform=ax[0].transAxes, fontsize=10,
+           # verticalalignment='top', bbox=props)
 
 
 ax[1].plot(pr.index, quickflows[basin],
@@ -373,6 +379,7 @@ ax1.legend(frameon=False, fontsize=12, loc=(0, 1), ncol=3)
 
 
 for axis in [ax[1]]:
+    axis.set_xlim(interval.start, interval.stop)
     axis.xaxis.set_major_formatter(mpl.dates.DateFormatter('\n\n%d'))
     axis.xaxis.set_major_locator(mpl.dates.DayLocator(interval=1))
 
@@ -385,12 +392,11 @@ for axis in [ax[1]]:
         maj.label.set_fontsize(18)
     for m in axis.xaxis.get_minor_ticks():
         m.label.set_fontsize(12)
-    axis.set_xlim(interval3.start, interval3.stop)
 
 box = ax[1].get_position()
 fig.text(box.xmin, box.ymin*-1.15, '2013-Aug', ha='center', va='center')
-plt.savefig('plots/caseofstudy_Aug2013/flood_study_'+basin.replace(" ", "")+'.pdf',
-            dpi=150, bbox_inches='tight')
+# plt.savefig('plots/caseofstudy_Aug2013/flood_study_'+basin.replace(" ", "")+'.pdf',
+#             dpi=150, bbox_inches='tight')
 
 # %%
 plt.rc("font", size=18)
@@ -417,10 +423,10 @@ for i, axis in enumerate(ax[0, :]):
              width=pd.Timedelta(hours=1),
              align='edge', label='Precipitation',
              edgecolor='k', linewidth=0.0, zorder=1)
-    axis.bar(melt.index-datetime.timedelta(hours=1),
-             melt.iloc[:, i], edgecolor='k', linewidth=0.0, color='darkviolet',
-             width=pd.Timedelta(hours=1), align='edge', label='Snowmelt',
-             bottom=pr.iloc[:, i].fillna(0), zorder=2)
+    # axis.bar(melt.index-datetime.timedelta(hours=1),
+             # melt.iloc[:, i], edgecolor='k', linewidth=0.0, color='darkviolet',
+             # width=pd.Timedelta(hours=1), align='edge', label='Snowmelt',
+             # bottom=pr.iloc[:, i].fillna(0), zorder=2)
     axis.set_yticks(np.arange(0, 9+1.5, 1.5))
     axis.set_yticklabels([0, "", 3, "", 6, "", 9])
 
@@ -439,6 +445,8 @@ for i, axis in enumerate(ax[0, :]):
 
 
 for i, axis in enumerate(ax[1, :]):
+    
+    axis.set_xlim(interval.start, interval.stop)
     axis.plot(runoff.index,
               quickflows.iloc[:, i],
               color='darkblue')
@@ -480,7 +488,6 @@ for i, axis in enumerate(ax[1, :]):
     for m in axis.xaxis.get_minor_ticks():
         m.label.set_fontsize(10)
     # axis.set_xlim([15927.7, 15933])
-    axis.set_xlim(15923.5, 15932)
 ax[-1, 0].set_ylabel('$(m^3/s)$')
 ax[0, 0].set_ylabel('$(mm/h)$')
 ax[1, 0].plot([], [], color='tab:green', label='ROS Area')
