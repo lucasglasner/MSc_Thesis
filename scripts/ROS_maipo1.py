@@ -45,13 +45,18 @@ pr_cr2met.index = pd.to_datetime(pr_cr2met["date"])
 pr_cr2met.drop("date", axis=1, inplace=True)
 pr_cr2met = pr_cr2met.squeeze()
 
+pr_dgf = pd.read_csv(
+    "datos/estaciones/dgf/DATOSUTC_2004-2019.csv", index_col=0)
+pr_dgf.index = pd.to_datetime(
+    pr_dgf.index.values)-datetime.timedelta(hours=4)
+pr_dgf = pr_dgf.iloc[:, 9].resample('h').sum()
 
 # pr la obra
-pr_laobra = pd.read_csv('datos/estaciones/pr_laobra.csv', dtype=str)
-pr_laobra.index = pd.to_datetime(
-    pr_laobra.iloc[:, 0]+"-"+pr_laobra.iloc[:, 1]+"-"+pr_laobra.iloc[:, 2])
-pr_laobra = pr_laobra.iloc[:, 3]
-pr_laobra = pd.to_numeric(pr_laobra).reindex(pr_cr2met.index)
+pr_sanjose = pd.read_csv('datos/estaciones/pr_SanJoseMaipo.csv', dtype=str)
+pr_sanjose.index = pd.to_datetime(
+    pr_sanjose.iloc[:, 0]+"-"+pr_sanjose.iloc[:, 1]+"-"+pr_sanjose.iloc[:, 2])
+pr_sanjose = pr_sanjose.iloc[:, 3]
+pr_sanjose = pd.to_numeric(pr_sanjose).reindex(pr_cr2met.index)
 
 
 # isoterma0
@@ -66,7 +71,7 @@ H0 = H0['STODOMINGO']
 int_func = interp1d(hypso.height, hypso.fArea)
 pluv_area = int_func(H0-300)
 pluv_area = pd.Series(pluv_area, index=H0.index)
-pluv_area = pluv_area.where(pr_laobra > 0)
+pluv_area = pluv_area.where(pr_cr2met > 3)
 
 # snow cover
 SCA = pd.read_csv('datos/snowcovers_maipomanzano.csv',
@@ -106,15 +111,24 @@ for i in range(len(SL_trend)):
 
 # area ros
 ros_area = SCA-(1-pluv_area)
-ros_area = ros_area.where(ros_area > 0).fillna(0)
+ros_area = ros_area.where(ros_area >= 0)
 
 # caudal
 qinst_mm = pd.read_csv(
     "datos/estaciones/qinst_RioMaipoEnElManzano.csv", index_col=0).qinst_mm
 qinst_mm.index = pd.to_datetime(qinst_mm.index)
-qinst_mm = qinst_mm.resample('d').max().reindex(pr_cr2met.index)
 
-q_anomaly = local_minimum_filter(qinst_mm, 40)[1]
+
+
+#%%
+q_anomaly = local_minimum_filter(qinst_mm, 25)[1]
+
+runoff = pd.concat([qinst_mm,qinst_mm-q_anomaly],axis=1)
+# runoff["2005-06"].plot()
+#%%
+qmaxd = qinst_mm.resample('d').max().reindex(pr_cr2met.index)
+q_anomaly = q_anomaly.resample('d').mean().reindex(pr_cr2met.index)
+
 
 # %%
 # =============================================================================
@@ -123,11 +137,11 @@ q_anomaly = local_minimum_filter(qinst_mm, 40)[1]
 paths = "datos/ANDES_SWE_Cortes/regrid_cr2met/RioMaipoEnElManzano/ANDES_SWE*"
 paths = glob(paths)
 SWE = xr.open_mfdataset(paths, chunks='auto').SWE
-# paths = 'datos/ANDES_SWE_Cortes/regrid_cr2met/RioMaipoEnElManzano/ANDES_dSWE_*.nc'
-# dSWE = xr.open_mfdataset(paths).SWE
-# dSWE = dSWE.reindex({'time': SWE.time.to_series().index})
+paths = 'datos/ANDES_SWE_Cortes/regrid_cr2met/RioMaipoEnElManzano/ANDES_dSWE_*.nc'
+dSWE = xr.open_mfdataset(paths).SWE
+dSWE = dSWE.reindex({'time': SWE.time.to_series().index})
 
-dSWE = SWE.shift({'time': -1})-SWE
+# dSWE = SWE.shift({'time': -1})-SWE
 paths = "datos/era5/H0_ERA5_*.nc"
 H0_era5 = xr.open_mfdataset(paths, chunks='auto').deg0l
 H0_era5 = H0_era5.reindex({'time': SWE.time.to_series().index},
@@ -156,14 +170,14 @@ PR = xr.open_dataset(paths, chunks='auto').pr
 PR = PR.reindex({"time": SWE.time.to_series().index},
                 method='nearest')
 
+#%%
+ROS = xr.where((SWE > 10) & (H0_era5>300) & (PR > 20) & (dSWE < 0),
+               True, False).load()
+ROS_CCE = np.empty(ROS.shape[0])
+for i in range(ROS.shape[0]):
+    ROS_CCE[i] = ROS[i, :, :].sum()
 
-ROS_CCE = xr.where((SWE > 10) & (freeze) & (PR > 3) & (dSWE <= 0),
-                   True, False).load()
-ROS = np.empty(ROS_CCE.shape[0])
-for i in range(ROS_CCE.shape[0]):
-    ROS[i] = ROS_CCE[i, :, :].sum()
-
-ROS_CCE = pd.Series(ROS, index=SWE.time.values)
+ROS_CCE = pd.Series(ROS_CCE, index=SWE.time.values)
 ROS_CCE = ROS_CCE/191
 # del SWE, H0_era5, PR, paths
 
@@ -176,31 +190,36 @@ ROS_CCE = ROS_CCE.reindex(ros_area.index)
 interval = slice(datetime.datetime(2000, 2, 25),
                  datetime.datetime(2020, 4, 30))
 
-data_daily = pd.concat([pr_cr2met, pr_laobra, SCA, pluv_area,
-                        ros_area, H0, SL, SCA_trend, SL_trend, qinst_mm,
-                        q_anomaly], axis=1)
-data_daily.columns = ['pr_cr2met', 'pr_laobra', 'sca', 'pluvarea',
+data_daily = pd.concat([pr_cr2met, pr_sanjose, SCA, pluv_area,
+                        ros_area, H0, SL, SCA_trend, SL_trend, qmaxd,
+                        q_anomaly, pr_dgf.resample('d').max(),
+                        pr_dgf.resample('d').sum()], axis=1)
+data_daily.columns = ['pr_cr2met', 'pr_sanjose', 'sca', 'pluvarea',
                       'ros_area', 'fl', 'sl', 'sca_trend', 'sl_trend',
-                      'qmax_d', 'quickflow']
+                      'qmax_d', 'quickflow','max_pr_int','pr_dgf']
 data_daily['date'] = pr_cr2met.index
 data_daily['delta_ros'] = data_daily['fl']-data_daily['sl']
 data_daily['new_events'] = data_daily.groupby(
-    'pr_laobra')['date'].apply(lambda s: s.diff().dt.days < 2)
+    'pr_sanjose')['date'].apply(lambda s: s.diff().dt.days < 2)
 data_daily['new_events'] = data_daily['new_events'].rolling(
     2, center=True).min().astype(bool)
 data_daily['events'] = data_daily['new_events'].cumsum()
 data_daily = data_daily.groupby([data_daily.index, data_daily.events]).mean()
-data_daily = data_daily[data_daily['pr_laobra'] > 3]
-data_daily = data_daily[interval]
+data_daily = data_daily[data_daily['pr_sanjose'] > 0]
+# data_daily = data_daily[data_daily['ros_area']>0.1]
+# data_daily = data_daily[interval]
+# data_daily = data_daily["2004":]
+
+
 
 
 # %%
 # =============================================================================
 # Group precipitation days by event
 # =============================================================================
-data_events = data_daily['pr_laobra'].unstack().sum(axis=0)
+data_events = data_daily['pr_sanjose'].unstack().sum(axis=0)
 data_events = pd.concat([data_events], axis=1)
-data_events.columns = ['pr_laobra']
+data_events.columns = ['pr_sanjose']
 data_events['max_pluv_area'] = data_daily.pluvarea.groupby(
     'events').apply(lambda x: x.max())
 data_events['start'] = data_daily.sca.groupby(
@@ -212,42 +231,78 @@ data_events['start_sca'] = data_daily.sca.groupby(
 data_events['end_sca'] = data_daily.sca.groupby(
     'events').apply(lambda x: x[-1])
 data_events['duration'] = data_events['end']-data_events['start']
-data_events['duration'] = data_events['duration'].map(lambda x: x.days+1)
+# data_events['duration'] = data_events['duration'].map(lambda x: x.days+0)
 data_events['delta_sca'] = data_events['end_sca']-data_events['start_sca']
-data_events['middate'] = data_events.start + \
-    data_events['duration'].map(lambda x: pd.Timedelta(days=x//2))
+# data_events['middate'] = data_events.start + \
+#     data_events['duration'].map(lambda x: pd.Timedelta(days=x//2))
 
-
+data_events['qmax'] = data_daily.qmax_d.groupby(
+    'events').apply(lambda x: x.max())
+data_events['return_period'] = data_events['qmax'].apply(
+    lambda x: (1-st.percentileofscore(qinst_mm,x)/100))
 data_events['max_ros_area'] = data_daily.ros_area.groupby(
     'events').apply(lambda x: x.max())
+data_events['pr_cum'] = data_daily.pr_dgf.groupby(
+    'events').apply(lambda x: x.sum())
+data_events['pr_max'] = data_daily.max_pr_int.groupby(
+    'events').apply(lambda x: x.max())
+data_events['tot_vol'] = data_daily.groupby(
+    'events').apply(lambda x: 4843.19*np.sum(x['pr_sanjose']*x['pluvarea'])/1e3)
+data_events['vol_dir'] = data_daily.groupby(
+    'events').apply(lambda x: np.sum(x['quickflow']*3600*24)/1e6)
+data_events['return_period'] = 1/data_events['return_period']
+data_events = data_events[data_events['return_period']>10]
+data_events = data_events[data_events['tot_vol']>0]
 
+#%%
+
+mask = data_events['max_ros_area']>0.1
+# mask = np.logical_and(mask,data_events['return_period'])
+fig,ax = plt.subplots(1,1)
+ax.set_xscale('log')
+ax.set_yscale('log')
+sc = ax.scatter(data_events[mask]['tot_vol'],data_events[mask]['vol_dir'],
+                c = data_events[mask]['max_ros_area'], cmap='tab10',
+                edgecolor='k',zorder=2,vmin=0,vmax=1)
+ax.scatter(data_events[~mask]['tot_vol'], data_events[~mask]['vol_dir'],
+            color='grey', alpha=0.3)
+ax.plot([0,1e3],[0,1e3],color='k',ls=":")
+ax.set_ylim(1,1000)
+ax.set_xlim(1,1000)
+ax.set_xlabel(r'$\int PR \cdot A_p dt$ $(hm^3)$')
+ax.set_ylabel(r'$V_d$ $(hm^3)$')
+fig.colorbar(sc, ticks=np.arange(0,1.1,0.1))
+
+# ax.scatter(data_events.loc[6686]['tot_vol'],data_events.loc[6686]['vol_dir'],
+#            color='tab:red',zorder=3)
+# # plt.plot([0,.2],[0,.2],color='tab:red')
+# plt.xlim(0,0.3)
+# plt.ylim(0,0.3)
+# plt.yscale('log')
+# plt.xscale('log')
 
 # %%
 # =============================================================================
-# compute some ploteable stats
+# 
 # =============================================================================
+fig, ax = plt.subplots(2, 2, figsize=(14, 7))
+fig.tight_layout(pad=1.5)
+plt.rc('font', size=18)
+ax = ax.ravel()
+# ros_area = ros_area[pr_sanjose>3]
+ac1 = (ros_area>0).groupby(ros_area.index.month).sum()/(2019-2000)
+ac2 = (ROS_CCE>0).groupby(ROS_CCE.index.month).sum()/(2015-1984)
 
-# ROS = 
+ax[0].bar(np.arange(0,12),ac1.reindex(np.arange(1,13)),width=0.25,edgecolor='k',
+          align='edge')
 
-# %%
-# fig, ax = plt.subplots(2, 2, figsize=(14, 7))
-# fig.tight_layout(pad=1.5)
-# plt.rc('font', size=18)
-# ax = ax.ravel()
-# # month = ROS.resample("m").sum().applymap(lambda x: np.nan if x == 0 else x)
-# for pair in pairs:
-#     var = year[pair].dropna()
-#     m = st.linregress(range(len(var)), var)
-#     trend = "{:.2f}".format(m.slope)
-#     pvalue = "{:.2f}".format(m.pvalue)
-#     ax[1].plot(var, label="Trend: "+trend+" days/year",
-#                alpha=0.8)
-# ax[1].plot(year[pairs[0]].dropna(), color='tab:blue', lw=2)
-# ax[1].legend(loc=(0, 1), frameon=False, fontsize=16)
-# # ax[1].set_xticklabels()
-# # ax[1].sharex(ax[3])
-# ax[1].tick_params(axis='x', rotation=45)
-# meanROS.plot.bar(ax=ax[0], alpha=0.8, edgecolor='k')
+# ax[0].bar(np.arange(0,12),ac2,width=-0.25,edgecolor='k',
+          # align='edge')
+ax[0].set_xlim(0,11)
+ax[0].set_xticks(np.arange(0,12))
+ax[0].set_xticklabels(['JAN','FEB','MAR','APR','MAY','JUN',
+                       'JUL','AUG','SEP','OCT','NOV','DEC'])
+ax[0].tick_params(axis="x",rotation=45)
 
 
 # for i in meanROS.columns:

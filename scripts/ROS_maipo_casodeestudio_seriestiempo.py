@@ -274,30 +274,13 @@ qinst_mm = pd.read_csv("datos/estaciones/qinst_" +
                        cuenca+".csv", index_col=0).qinst_mm
 qinst_mm.index = pd.to_datetime(qinst_mm.index)
 
-pr_mm = pd.read_csv('datos/estaciones/station_RioMaipoEnElManzano_2000-01-21_2021-01-01.csv')
-pr_mm.index = pd.to_datetime(pr_mm['Fecha'])
-pr_mm = pr_mm['Valor'].drop_duplicates()
-pr_mm = pr_mm.reindex(pd.date_range(interval.start,
-                                    interval.stop, freq='h')).fillna(0)
 
-pr_qm = pd.read_csv('datos/estaciones/station_QuebradaDeMacul_2000-01-21_2021-01-01.csv')
-pr_qm.index = pd.to_datetime(pr_qm.Fecha)
-pr_qm = pr_qm['Valor'].drop_duplicates()
-pr_qm = pr_qm.reindex(pd.date_range(interval.start,interval.stop,freq='h')).fillna(0)
-
-pr_mapocho = pd.read_csv('datos/estaciones/station_RioMapochoEnLosAlmendros_2000-01-21_2021-01-01.csv')
-pr_mapocho.index = pd.to_datetime(pr_mapocho.Fecha)
-pr_mapocho = pr_mapocho['Valor'].drop_duplicates()
-pr_mapocho = pr_mapocho.reindex(pd.date_range(interval.start,interval.stop,freq='h')).fillna(0)
-
-
-pr_laobra = pd.read_csv('datos/estaciones/pr_laobra.csv', dtype=str)
-pr_laobra.index = pd.to_datetime(
-    pr_laobra.iloc[:, 0]+"-"+pr_laobra.iloc[:, 1]+"-"+pr_laobra.iloc[:, 2])
-pr_laobra = pr_laobra.iloc[:, 3]
-pr_laobra = pd.to_numeric(pr_laobra).reindex(pr_mm.index)
-pr_laobra = pr_laobra.fillna(method='ffill')/24
-# pr_laobra = np.clip(pr_laobra,0,100)
+pr_sanjose = pd.read_csv('datos/estaciones/pr_SanJoseMaipo.csv', dtype=str)
+pr_sanjose.index = pd.to_datetime(
+    pr_sanjose.iloc[:, 0]+"-"+pr_sanjose.iloc[:, 1]+"-"+pr_sanjose.iloc[:, 2])
+pr_sanjose = pr_sanjose.iloc[:, 3]
+pr_sanjose = pd.to_numeric(pr_sanjose).resample('h').fillna(method='ffill')/24
+# pr_sanjose = np.clip(pr_sanjose,0,100)
 
 # =============================================================================
 # Estacion dgf
@@ -367,7 +350,7 @@ ax00.set_ylabel('SWR\n$(W/m^2)$')
 # =============================================================================
 # plot precipitation and temperature
 # =============================================================================
-ax[1].bar(pr_mm[interval].index,
+ax[1].bar(pr_sanjose[interval].index,
           datos_dgf[interval].iloc[:, 9].resample('h').sum(),
           width=pd.Timedelta(hours=1),
           zorder=1, color='royalblue', label='DGF-Roof')
@@ -376,11 +359,11 @@ ax[1].bar(pr_mm[interval].index,
 #           zorder=0, color='cadetblue', label='CR2MET Basin Mean',
 #           width=1, edgecolor='k')
 
-ax[1].bar(pr_mm[interval].index+pd.Timedelta(hours=1), pr_laobra[interval], alpha=0.5,
-          zorder=0, color='cadetblue', label='La Obra',
+ax[1].bar(pr_sanjose[interval].index+pd.Timedelta(hours=1), pr_sanjose[interval], alpha=0.5,
+          zorder=0, color='cadetblue', label='San Jose De Maipo',
           width=pd.Timedelta(hours=1))
 ax[1].set_ylim(0, 5)
-ax[1].set_yticks([1, 3, 5, 7])
+ax[1].set_yticks([1, 3, 5])
 ax[1].set_ylabel('Precipitation\n$(mm/hour)$')
 ax[1].legend(loc=(0, 1.01), fontsize=16, frameon=False, ncol=2)
 ax11 = ax[1].twinx()

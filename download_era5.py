@@ -4,26 +4,24 @@ c = cdsapi.Client()
 
 
 c.retrieve(
-    'reanalysis-era5-pressure-levels',
+    'reanalysis-era5-single-levels',
     {
         'product_type': 'reanalysis',
         'format': 'netcdf',
         'variable': [
-            'geopotential', 'temperature', 'u_component_of_wind',
-            'v_component_of_wind',
+            'mean_sea_level_pressure',
+            'total_column_water',
+            'total_precipitation',
+            'vertical_integral_of_eastward_water_vapour_flux',
+            'vertical_integral_of_northward_water_vapour_flux',
         ],
-        'pressure_level': [
-            '300', '500', '700',
-            '800', '850', '900',
-            '1000',
-        ],
-        'year': '2013',
-        'month': '08',
+        'year': '2008',
+        'month': '05',
         'day': [
-            '04', '05', '06',
-            '07', '08', '09',
-            '10', '11', '12',
-            '13', '14',
+            '20', '21', '22',
+            '23', '24', '25',
+            '26', '27', '28',
+            '29', '30', '31',
         ],
         'time': [
             '00:00', '01:00', '02:00',
@@ -40,4 +38,4 @@ c.retrieve(
             -60,
         ],
     },
-    'download_era5_upper.nc')
+    'download_era5_surface.nc')

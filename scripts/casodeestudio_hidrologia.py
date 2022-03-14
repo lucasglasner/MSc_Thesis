@@ -30,8 +30,6 @@ from functions import add_labels, local_minimum_filter
 import sys
 sys.path.append('functions.py')
 
-# %%
-
 
 # %%
 # =============================================================================
@@ -51,7 +49,7 @@ basin_attributes.index = basin_attributes.gauge_name
 # PRECIPITATION ON BASIN OUTLETS
 # =============================================================================
 
-basins = ['Rio Maipo En El Manzano', 'Rio Teno Despues De Junta Con Claro',
+basins = ['RioMapochoEnLosAlmendros', 'Rio Teno Despues De Junta Con Claro',
           'Rio Uble En San Fabian N 2']
 
 # pr_mm = pd.read_csv('datos/estaciones/pr_RioMaipoEnElManzano_2013-08.csv')
@@ -77,26 +75,44 @@ basins = ['Rio Maipo En El Manzano', 'Rio Teno Despues De Junta Con Claro',
 #                         'Rio Uble En San Fabian N 2']
 # del pr_mm, pr_teno, pr_uble
 
+datos_dgf = pd.read_csv(
+    "datos/estaciones/dgf/DATOSUTC_2004-2019.csv", index_col=0)
+datos_dgf.index = pd.to_datetime(
+    datos_dgf.index.values)-datetime.timedelta(hours=4)
+pr_dgf = datos_dgf[interval].iloc[:, 9].resample('h').sum()
+
+del datos_dgf
 pr = []
+station_height = []
 for basin in basins:
-    pp = pd.read_csv('datos/estaciones/station_' +
-                     basin.replace(" ", "")+'_2000-01-21_2021-01-01.csv', index_col=0)
+    pp = pd.read_csv('datos/estaciones/pr_' +
+                     basin.replace(" ", "")+'_2008-05-01_2008-06-26.csv', index_col=0)
     pp.index = pd.to_datetime(pp['Fecha'])
+    station_height.append(pp.Altura.iloc[0])
     pp = pp['Valor'].drop_duplicates()
     pr.append(pp)
+    
+station_height = pd.Series(station_height,index = basins)
 
 pr = pd.concat(pr, axis=1).reindex(date_interval)
 pr.columns = basins
 pr = pr[interval]
 
-pr_laobra = pd.read_csv('datos/estaciones/pr_laobra.csv', dtype=str)
-pr_laobra.index = pd.to_datetime(
-    pr_laobra.iloc[:, 0]+"-"+pr_laobra.iloc[:, 1]+"-"+pr_laobra.iloc[:, 2])
-pr_laobra = pd.to_numeric(pr_laobra.iloc[:, 3])
-# %%
+
+pr_sanjose = pd.read_csv('datos/estaciones/pr_SanJoseMaipo.csv', dtype=str)
+pr_sanjose.index = pd.to_datetime(
+    pr_sanjose.iloc[:, 0]+"-"+pr_sanjose.iloc[:, 1]+"-"+pr_sanjose.iloc[:, 2])
+pr_sanjose = pd.to_numeric(pr_sanjose.iloc[:, 3])
+pr_sanjose = pr_sanjose[interval]
+pr_sanjose = pr_sanjose.resample('h').fillna(method='ffill')
+
 # =============================================================================
 # hypsometric curves
 # =============================================================================
+basins = ['Rio Maipo En El Manzano', 'Rio Teno Despues De Junta Con Claro',
+          'Rio Uble En San Fabian N 2']
+pr.columns = basins
+pr['Rio Maipo En El Manzano'] = pr_dgf[interval]
 
 hypso = [pd.read_csv('datos/topography/basins/hypso/' +
                      b.replace(" ", "")+"_hypso.csv") for b in basins]
@@ -264,40 +280,65 @@ melt = melt.reindex(pr.index).interpolate(method='cubicspline')/24
 # =============================================================================
 # compute flood stats
 # =============================================================================
-interval2 = slice(datetime.datetime(2013, 8, 10),
-                  datetime.datetime(2013, 8, 14))
-
-qmax = runoff[interval2].max()
-pr_max = pr[interval2].max()
-pr_cum = pr[interval2].sum()
-
-rain = pr[interval2].where(pr[interval2] > 0).dropna(how='all')
-start_rain = [rain[c].dropna().index[0] for c in rain.columns]
-end_rain = [rain[c].dropna().index[-1] for c in rain.columns]
-start_rain = np.array(start_rain)
-end_rain = np.array(end_rain)
-rain_duration = end_rain-start_rain
-# rain_duration = np.array([rd.total_seconds() for rd in rain_duration])/3600
-rain_duration = pd.Series(rain_duration, index=qmax.index)
-rain_duration = rain_duration.map(lambda x: int(x.total_seconds()/3600))
-tau = (runoff)[interval2].idxmax()-start_rain
-tau = tau.map(lambda x: int(x.total_seconds()/3600))
-
-melt_cum = melt[interval2][pr[interval2] > 0].sum()
+interval1 = slice(pd.to_datetime("2008-05-26"), pd.to_datetime("2008-05-29"))
+interval2 = slice(pd.to_datetime("2008-06-03"),pd.to_datetime("2008-06-06"))
 
 
-runoff3 = runoff2.resample('d').max()
-q_ext = np.empty(runoff3.shape[1])
-for i in range(len(q_ext)):
-    q_ext[i] = np.percentile(runoff3.iloc[:, i].dropna(), 90)
-q_ext = pd.Series(q_ext, index=runoff3.columns)
 
-stats = pd.concat([qmax, q_ext, pr_max, pr_cum,
-                  melt_cum, rain_duration, tau], axis=1)
-stats.columns = ['Qmax', 'Q90', 'PRmax',
-                 'PRcum', 'Snowmelt', 'RainDuration', 'tau']
+stats = pd.DataFrame(columns=['qmax','pr_max','pr_cum','start','rain_duration','tau',
+                              'max_area_pluvial'],
+                     index=basins)
+stats = pd.concat([stats,stats],keys=["storm1","storm2"])
+for inter,storm in zip([interval1,interval2],["storm1","storm2"]):
+    qmax = runoff[inter].max().round(2)
+    pr_max = pr[inter].max().round(2)
+    pr_cum = pr[inter].sum().round(2)
+    start_rain = pr[inter].apply(lambda x: x.where(x>3/24).dropna().index[0])
+    stop_rain = pr[inter].apply(lambda x: x.where(x>3/24).dropna().index[-1])
+    duration = stop_rain-start_rain
+    tau = runoff[inter].idxmax()-start_rain
+    max_area = pluv_area[inter].where(pr[inter]>3/24).max().round(2)
+    for b in basins:
+        stats.loc[storm,b].qmax = qmax[b]
+        stats.loc[storm,b].pr_max = pr_max[b]
+        stats.loc[storm,b].pr_cum = pr_cum[b]
+        stats.loc[storm,b].start = start_rain[b]
+        stats.loc[storm,b].rain_duration = duration[b]
+        stats.loc[storm,b].tau = tau[b]
+        stats.loc[storm,b].max_area_pluvial = max_area[b]
+    
 
-stats = stats.round(2)
+# qmax = runoff[interval2].max()
+# pr_max = pr[interval2].max()
+# pr_cum = pr[interval2].sum()
+
+# rain = pr[interval2].where(pr[interval2] > 0).dropna(how='all')
+# start_rain = [rain[c].dropna().index[0] for c in rain.columns]
+# end_rain = [rain[c].dropna().index[-1] for c in rain.columns]
+# start_rain = np.array(start_rain)
+# end_rain = np.array(end_rain)
+# rain_duration = end_rain-start_rain
+# # rain_duration = np.array([rd.total_seconds() for rd in rain_duration])/3600
+# rain_duration = pd.Series(rain_duration, index=qmax.index)
+# rain_duration = rain_duration.map(lambda x: int(x.total_seconds()/3600))
+# tau = (runoff)[interval2].idxmax()-start_rain
+# tau = tau.map(lambda x: int(x.total_seconds()/3600))
+
+# melt_cum = melt[interval2][pr[interval2] > 0].sum()
+
+
+# runoff3 = runoff2.resample('d').max()
+# q_ext = np.empty(runoff3.shape[1])
+# for i in range(len(q_ext)):
+#     q_ext[i] = np.percentile(runoff3.iloc[:, i].dropna(), 90)
+# q_ext = pd.Series(q_ext, index=runoff3.columns)
+
+# stats = pd.concat([qmax, q_ext, pr_max, pr_cum,
+#                   melt_cum, rain_duration, tau], axis=1)
+# stats.columns = ['Qmax', 'Q90', 'PRmax',
+#                  'PRcum', 'Snowmelt', 'RainDuration', 'tau']
+
+
 # %%
 # =============================================================================
 # MAIPO EN EL MANZANO
@@ -308,19 +349,23 @@ plt.rc("font", size=18)
 fig, ax = plt.subplots(2, 1, figsize=(12, 4), sharex=True,
                        gridspec_kw={'height_ratios': [1, 2]})
 
-basin = 'Rio Maipo En El Manzano'
-props = dict(facecolor='white', lw=1)
-names = ['$Q_{max}$: ', '$Q_{90}$: ', '$PR_{max}$: ', '$PR_{cum}$: ', '$Melt_{cum}$: ',
-         '$RainDuration$: ', r'$\tau_{peak}$: ']
-units = ['$m^3/s$', '$m^3/s$', '$mm/h$', '$mm$', '$mm$', '$hr$', '$hr$']
+basin = 'Rio Uble En San Fabian N 2'
+props = dict(facecolor='white', lw=1, alpha=1,zorder=1)
+names = ['$Q_{max}$: ', '$PR_{max}$: ', '$PR_{cum}$: ','RainStart: ',
+         '$RainDuration$: ', r'$\tau_{peak}$: ',r'$A_{p}$: ']
+units = ['$m^3/s$', '$mm/h$', '$mm$', "", "", "",r"$ km^2$"]
 
-ax[0].bar(pr.index-datetime.timedelta(hours=1),
+ax[0].bar(pr.index,
           pr[basin], width=pd.Timedelta(hours=1), color='cadetblue',
-          align='edge', label='Precipitation')
+          align='edge', label='Rio Ñuble En\nSan Fabian\n450(m)',zorder=3)
+# ax[0].bar(pr_sanjose.index+datetime.timedelta(hours=1),
+#           pr_sanjose/24,width=pd.Timedelta(hours=1),
+#           color='cadetblue', alpha=0.33, label='San Jose De Maipo\n943(m)')
 ax[0].grid(True, which='both', ls=":")
 ax[0].set_yticks([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
-ax[0].set_yticklabels([0, "", "", 3, "", "", 6, "", "", 9, "", "", 12])
-ax[0].set_ylim(0, 7)
+# ax[0].set_yticklabels(ax[0].get_yticks()[::2])
+ax[0].set_yticklabels(["", "1", "", "3", "", "5", "", "", "", 9, "", "", 12])
+ax[0].set_ylim(0, 6)
 # ax[0].bar(melt.index, melt[basin], edgecolor="k")
 # ax[0].bar(melt.index-datetime.timedelta(hours=1),
           # melt[basin], edgecolor='k', linewidth=0.0, color='darkviolet',
@@ -330,15 +375,34 @@ ax[0].set_ylim(0, 7)
 # #             gin,
 # #             width=0.037, edgecolor='k', color='orange')
 ax[0].set_ylabel('(mm/h)')
-ax[0].legend(frameon=False, loc=(0.01, 0.95), ncol=2, fontsize=12)
-ax[0].set_title(basin, loc='right')
+ax[0].legend(frameon=False, loc=(0.01, 0.95), ncol=1, fontsize=12)
+ax[0].set_title("Rio Ñuble En San Fabian", loc='right')
+
+ax0 = ax[0].twinx()
+ax0.set_ylim(0,1)
+ax0.set_yticks(np.arange(0,1+0.25,0.25))
+ax0.plot(pr.index, SCA[basin], color='tab:blue', alpha=0.2,
+         ls="--")
+ax0.plot(pr.index, SCA[basin].where(pr[basin] > 0), color='tab:blue',
+          label='SCA')
+
+
+box1 = stats.loc["storm1",basin].map(lambda x: str(x))
+box1 = list(box1)
+box2 = stats.loc["storm2",basin].map(lambda x: str(x))
+box2 = list(box2)
 
 # box = stats.loc[basin]
 # box = ['{:.1f}'.format((round(box[i], 1))) for i in range(len(box))]
 
-# textstr = '\n'.join([n+b+u for n, b, u in zip(names, box, units)])
-# ax[0].text(0.4, 1.5, textstr, transform=ax[0].transAxes, fontsize=10,
-           # verticalalignment='top', bbox=props)
+textstr1 = '\n'.join([n+b+u for n, b, u in zip(names, box1, units)])
+textstr2 = '\n'.join([n+b+u for n, b, u in zip(names, box2, units)])
+
+ax[0].text(0.2, 1.55, textstr1, transform=ax[0].transAxes, fontsize=10,
+            verticalalignment='top', bbox=props)
+ax[1].text(0.43, .92, textstr2, transform=ax[1].transAxes, fontsize=10,
+            verticalalignment='top', bbox=props)
+
 
 
 ax[1].plot(pr.index, quickflows[basin],
@@ -353,39 +417,38 @@ ax[1].grid(axis="x", which='both', ls=":")
 # "2013-08-13T09:00:00", alpha=0.15, color='k')
 # ax[1].axvline("2013-08-11T14:00",color='k',alpha=0.5, ls=":")
 ax[1].set_ylabel('$(m^3/s)$')
-ax[1].legend(loc=(0.8, 1), frameon=False, fontsize=12)
-
+ax[1].legend(loc=(0.8, 0.965), frameon=False, fontsize=12)
+ax[1].set_yticks(np.arange(0,200+50,50))
+ax[1].set_ylim(0,200)
 
 # ax[1].plot(pr.index, (quickflows)[interval2], color='darkblue')
 # ax[1].plot(pr.index, (quickflows)[interval2], color='darkblue')
 ax1 = ax[1].twinx()
 ax1.set_ylim(0, 1)
-ax1.set_yticks(np.arange(0, 1+0.1, 0.1))
-ax1.set_yticklabels([0, "", .2, "", .4, "", .6, "", .8, "", 1])
+ax1.set_yticks(np.arange(0, 1+0.25, 0.25))
+# ax1.set_yticklabels([0, "", .2, "", .4, "", .6, "", .8, "", 1])
+mask = pr[basin] > 0
 ax1.plot(pr.index, pluv_area[basin]/areas[basin], color='tab:red',
          alpha=0.2, ls="--")
-ax1.plot(pr.index, pluv_area[basin].where(pr[basin] > 0)/areas[basin],
+ax1.plot(pr.index, pluv_area[basin].where(mask)/areas[basin],
          color='tab:red',
          label='Pluvial Area')
-ax1.plot(pr.index, ros_area[basin].where(ros_area[basin] > 0).where(pr[basin] > 0)/areas[basin],
+ax1.plot(pr.index, ros_area[basin].where(ros_area[basin] > 0).where(mask)/areas[basin],
          color='tab:green', label='ROS Area')
-ax1.plot(pr.index, SCA[basin].where(pr[basin] > 0), color='tab:blue',
-         label='SCA')
-ax1.plot(pr.index, SCA[basin], color='tab:blue', alpha=0.2,
-         ls="--")
+ax1.plot([],[],color='tab:blue',label='SCA')
 
 ax1.set_ylabel('Fraction of\ntotal Area (%)')
-ax1.legend(frameon=False, fontsize=12, loc=(0, 1), ncol=3)
+ax1.legend(frameon=False, fontsize=12, loc=(0, 0.965), ncol=3)
 
 
 for axis in [ax[1]]:
-    axis.set_xlim(interval.start, interval.stop)
+    axis.set_xlim("2008-05-25T18:00:00", "2008-06-07")
     axis.xaxis.set_major_formatter(mpl.dates.DateFormatter('\n\n%d'))
     axis.xaxis.set_major_locator(mpl.dates.DayLocator(interval=1))
 
     axis.xaxis.set_minor_formatter(mpl.dates.DateFormatter('%H:%M'))
     axis.xaxis.set_minor_locator(
-        mpl.dates.HourLocator(byhour=np.arange(0, 24, 3)))
+        mpl.dates.HourLocator(byhour=np.arange(0, 24, 6)))
     axis.tick_params(axis='x', which='minor', rotation=45)
 
     for maj in axis.xaxis.get_major_ticks():
@@ -394,9 +457,10 @@ for axis in [ax[1]]:
         m.label.set_fontsize(12)
 
 box = ax[1].get_position()
-fig.text(box.xmin, box.ymin*-1.15, '2013-Aug', ha='center', va='center')
-# plt.savefig('plots/caseofstudy_Aug2013/flood_study_'+basin.replace(" ", "")+'.pdf',
-#             dpi=150, bbox_inches='tight')
+fig.text(box.xmin, box.ymin*-1.15, '2008-May', ha='center', va='center')
+fig.text(box.xmin*4.35, box.ymin*-1.15, '2008-Jun', ha='center', va='center')
+plt.savefig('plots/caseofstudy_Jun2008/flood_study_'+basin.replace(" ", "")+'.pdf',
+            dpi=150, bbox_inches='tight')
 
 # %%
 plt.rc("font", size=18)
@@ -500,7 +564,7 @@ axis1.set_ylabel('Fraction of\ntotal Area (-)')
 
 box = ax[1, 0].get_position()
 fig.text(box.xmin*1.15, box.ymin*-1.15,
-         '\nAug\n2013', ha='center', va='center')
+         '\nMay\n2008', ha='center', va='center')
 
 # plt.savefig('plots/caseofstudy_Aug2013/flood_study_stodomingo.pdf',
 #             dpi=150, bbox_inches='tight')
