@@ -18,20 +18,22 @@ import xarray as xr
 import cartopy.crs as ccrs
 import geopandas as gpd
 import matplotlib as mpl
+from glob import glob
 
 import sys
 
 sys.path.append("functions.py")
 
 # %%
-
+interval = slice("2008-05-24T00:00","2008-06-06T00:00")
 surface_vars = xr.open_dataset(
-    'datos/era5/caseofstudy_Ago2013/era5_Ago2013_surface.nc')
+    'datos/era5/caseofstudy_Jun2008/era5_Jun2008_surface.nc',
+    chunks=None)
 upper_vars = xr.open_dataset(
-    'datos/era5/caseofstudy_Ago2013/era5_Ago2013_upper.nc')
+    'datos/era5/caseofstudy_Jun2008/era5_Jun2008_upper.nc')
 
 
-days = pd.date_range('2013-08-04T00:00:00', '2013-08-14T00:00:00', freq='d')
+days = pd.date_range("2008-05-26", "2008-06-06", freq='d')
 
 
 times = days.strftime('%b-%d\n%H:%MZ')
@@ -62,15 +64,15 @@ for i, axis in enumerate(ax.ravel()):
 
 for i, axis in enumerate(ax.ravel()):
     CL = axis.contour(lon2d, lat2d, surface_vars.msl.sel(time=days)[i, :, :]/100,
-                      levels=np.arange(1000, 1033, 3),
+                      levels=10,
                       colors='k', alpha=0.25, rasterized=True)
-    axis.clabel(CL, [1006, 1021], fmt='%i', fontsize=11)
+    axis.clabel(CL, CL.levels, fmt='%i', fontsize=11)
 
-    CL = axis.contour(lon2d, lat2d, upper_vars.sel(level=500,
-                                                   time=days).z[i, :, :]/9.8,
-                      colors='k',
-                      levels=np.arange(5200, 5850, 80))
-    axis.clabel(CL, [5360, 5760], fmt='%i', fontsize=11)
+    # CL = axis.contour(lon2d, lat2d, upper_vars.sel(level=500,
+                                                   # time=days).z[i, :, :]/9.8,
+                      # colors='k',
+                      # levels=np.arange(5200, 5850, 80))
+    # axis.clabel(CL, [5360, 5760], fmt='%i', fontsize=11)
 
     temp = axis.pcolormesh(lon2d, lat2d,
                            upper_vars.sel(
@@ -95,7 +97,7 @@ ax[-1, 0].legend(frameon=False, loc=(0, -.5), fontsize=14, ncol=2)
 cax = fig.add_axes([box2.xmax*1.03, box2.ymin, 0.01, box1.ymax-box2.ymin])
 fig.colorbar(temp, cax=cax, label='900hPa Temperature (°C)',
              ticks=[-4, 0, 4, 8, 12, 16, 20])
-plt.savefig('plots/caseofstudy_Aug2013/synoptic_generaldynamics.pdf', dpi=150,
+plt.savefig('plots/caseofstudy_Jun2008/synoptic_generaldynamics.pdf', dpi=150,
             bbox_inches='tight')
 
 # %%
@@ -144,7 +146,7 @@ ax[-1, 0].legend(frameon=False, loc=(0, -.5), fontsize=14, ncol=2)
 cax = fig.add_axes([box2.xmax*1.03, box2.ymin, 0.01, box1.ymax-box2.ymin])
 fig.colorbar(winds, cax=cax, label='300hPa Wind Speed (km/h)',
              ticks=np.arange(0, 250+25, 25))
-plt.savefig('plots/caseofstudy_Aug2013/synoptic_jetstream.pdf', dpi=150,
+plt.savefig('plots/caseofstudy_Jun2008/synoptic_jetstream.pdf', dpi=150,
             bbox_inches='tight')
 
 
@@ -201,7 +203,7 @@ cax = fig.add_axes([box2.xmax*1.03, box2.ymin, 0.01, box1.ymax-box2.ymin])
 fig.colorbar(pw, cax=cax,
              label='Integrated Water Vapor\nTransport $(kgm^{-1}s^{-1})$')
 
-plt.savefig('plots/caseofstudy_Aug2013/synoptic_ivtanalysis.pdf', dpi=150,
+plt.savefig('plots/caseofstudy_Jun2008/synoptic_ivtanalysis.pdf', dpi=150,
             bbox_inches='tight')
 
 # %%
@@ -255,14 +257,18 @@ chile = gpd.read_file('datos/vector/cl_continental_geo.shp')
 fig, ax = plt.subplots(1, 2, sharex=True, sharey=True, figsize=(14, 4))
 # fig.tight_layout(pad=0.5)
 
-ivt_cut = ivt.sel(lon=-74, method='nearest').interpolate_na(dim='time')
-pr_cut = surface_vars.tp.sel(lon=-71, method='nearest')*1000
+ivt_cut = ivt.sel(lon=-74, method='nearest').sel(
+    time=interval).load().interpolate_na(dim='time')
+pr_cut = surface_vars.tp.sel(lon=-71, method='nearest').sel(
+    time=interval)*1000
+pr_cut = pr_cut.where(pr_cut>0).load().interpolate_na(dim='time')
+pr_cut = pr_cut[:,::-1].interpolate_na(dim='lat')[:,::-1]
 lat, time = ivt_cut.lat, ivt_cut.time
 time2d, lat2d = np.meshgrid(time, lat)
 
-# ax[0].set_ylabel('Latitude (°S)')
-ax[0].set_xlabel('2013-Ago', loc='left')
-ax[1].set_xlabel('2013-Ago', loc='left')
+# ax[0].set_ylabel('lat (°S)')
+ax[0].set_xlabel('2008-May', loc='left')
+ax[1].set_xlabel('2008-May', loc='left')
 ax[0].grid(True, ls=":", which='both', axis='x')
 ax[1].grid(True, ls=":", which='both', axis='x')
 ax[0].set_ylabel('Latitude (°)')
@@ -272,15 +278,15 @@ map1 = ax[0].contourf(time2d, lat2d, ivt_cut.T, cmap='twilight',
                       levels=np.arange(0, 1250+125, 125), rasterized=True)
 # ax[0].contour(time2d, lat2d, ivt_cut.T, colors='grey',levels=np.arange(0,1250+125,125))
 
-map2 = ax[1].contourf(time2d, lat2d, pr_cut.T, cmap='Blues',
-                      rasterized=True)
-
+map2 = ax[1].contourf(time2d, lat2d, pr_cut.T.clip(0,6), cmap='Blues',
+                      rasterized=True, levels=np.arange(0,6+1,1))
 
 ax[0].xaxis.set_major_formatter(mpl.dates.DateFormatter('%d'))
 ax[0].xaxis.set_major_locator(
-    mpl.dates.DayLocator(bymonthday=np.arange(5, 15, 1)))
+    mpl.dates.DayLocator(interval=1))
 
-
+ax[0].tick_params(axis="x",rotation=45)
+ax[1].tick_params(axis="x", rotation=45)
 ax[0].xaxis.set_minor_formatter(mpl.dates.DateFormatter(''))
 ax[0].xaxis.set_minor_locator(mpl.dates.HourLocator(byhour=[6, 12, 18]))
 
@@ -306,5 +312,5 @@ ax2.spines['right'].set_visible(False)
 ax2.spines['bottom'].set_visible(False)
 # ax2.spines['left'].set_visible(False)
 ax2.tick_params(axis="x", rotation=90)
-plt.savefig('plots/caseofstudy_Aug2013/atmospheric_river_evolution.pdf', dpi=150,
+plt.savefig('plots/caseofstudy_Jun2008/atmospheric_river_evolution.pdf', dpi=150,
             bbox_inches='tight')

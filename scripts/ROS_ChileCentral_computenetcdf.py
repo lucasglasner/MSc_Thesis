@@ -93,7 +93,7 @@ PR & T2M from CR2MET Boisier et al"}
         FL = xr.open_dataset(H0_path, chunks='auto').deg0l.reindex(
             {'time': SWE.time}, method='nearest')
 
-        ROS = xr.where((SWE > 10) & (PR > 3) & (FL >= 300) & (dSWE < -5),
+        ROS = xr.where((SWE > 100) & (PR > 10) & (FL >= 300),
                        1, 0)
         ROS = ROS.reindex({'lon': SWE.lon, 'lat': SWE.lat}, method='nearest')
         ROS = xr.where(SWE > 10, ROS, -9999)
