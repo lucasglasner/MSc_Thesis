@@ -26,7 +26,7 @@ import cmocean
 # =============================================================================
 # Load Basin shapefiles
 # =============================================================================
-paths = glob('datos/vector/Rio*.shp')
+paths = glob('datos/vector/basins/Rio*.shp')
 cuencas = []
 for path in paths:
     cuencas.append(gpd.read_file(path))
@@ -36,7 +36,7 @@ cuencas = pd.concat(cuencas)
 # Load CR2MET precipitation and compute the mean rainy days per year
 # =============================================================================
 PR_CR2MET = xr.open_mfdataset('datos/cr2met/CR2MET_pr*', chunks=None).pr
-mean_rainydays = xr.where(PR_CR2MET > 3, 1, 0)
+mean_rainydays = xr.where(PR_CR2MET > 10, 1, 0)
 mean_rainydays = mean_rainydays.resample(
     {"time": "y"}).sum().mean(dim='time').load()
 
@@ -65,19 +65,24 @@ for yr in range(1984, 2016, 1):
     path = 'datos/ANDES_SWE_Cortes/regrid_cr2met/ANDES_SWE_'+str(yr)+'.nc'
     SWE = xr.open_dataset(path).SWE.max(dim='time')
     maxSWE.append(SWE)
-mask = xr.concat(maxSWE, 'max_years').mean(dim='max_years') > 10
+mask = xr.where(xr.concat(maxSWE, 'max_years').mean(dim='max_years') > 30 ,1,0)
+# mask = (mask) & (mean_rainydays>10)
 del maxSWE, SWE
 # %%
 # =============================================================================
 # Load delta SWE data
 # =============================================================================
-dSWE = xr.open_mfdataset(
-    glob('datos/ANDES_SWE_Cortes/regrid_cr2met/ANDES_dSWE_*')).SWE
+SWE = xr.open_mfdataset(
+    glob('datos/ANDES_SWE_Cortes/regrid_cr2met/ANDES_SWE_*')).SWE
+
+
+dSWE = (SWE.shift(time=-1)-SWE.shift(time=1))/2
+
 
 # compute mean of yearly maximums swe loss on ros days
 dSWEmax = dSWE.where(ROS.reindex({'time': dSWE.time}) == True)
 dSWEmax = dSWE.resample({'time': 'y'}).min().mean(dim='time')
-dSWEmax = dSWEmax.compute()
+dSWEmax = dSWEmax.compute().where(mask)
 # compute swe loss vs pr in ros days
 dswe_vs_pr = dSWE.where(ROS.reindex(
     {'time': dSWE.time}) == True).mean(dim='time')
@@ -85,7 +90,7 @@ dswe_vs_pr = -1*dswe_vs_pr / \
     (PR_CR2MET.where(ROS == True).mean(dim='time')-dswe_vs_pr)
 dswe_vs_pr = dswe_vs_pr.reindex({'lon': ROS.lon, 'lat': ROS.lat},
                                 method='nearest')
-dswe_vs_pr = dswe_vs_pr.compute()
+dswe_vs_pr = dswe_vs_pr.compute().where(dswe_vs_pr<1).where(mask)
 
 del dSWE
 # %%
@@ -116,7 +121,7 @@ ROS_days = freq_CORTESCR2MET.where(mask)
 mean_rainydays = mean_rainydays.where(mask).reindex({'lat': ROS_days.lat,
                                                      'lon': ROS_days.lon},
                                                     method='nearest')
-timing = timing.where(mask.values)
+timing = timing.where(mask.values.astype(bool))
 
 
 # %%
@@ -124,9 +129,9 @@ timing = timing.where(mask.values)
 # compute mean rain on ROS days vs extreme rain (100yr pr)
 # =============================================================================
 ROS_rainratio = PR_CR2MET.where(ROS == True).where(
-    PR_CR2MET > 3).mean(dim='time')
+    PR_CR2MET > 10).mean(dim='time')
 ROS_rainratio = ROS_rainratio / \
-    PR_CR2MET.where(PR_CR2MET > 3).compute().quantile(0.9, dim='time')
+    PR_CR2MET.where(PR_CR2MET > 10).compute().quantile(0.9, dim='time')
 ROS_rainratio = ROS_rainratio.reindex({'lon': ROS.lon, 'lat': ROS.lat},
                                       method='nearest')
 ROS_rainratio = ROS_rainratio.compute()
@@ -154,6 +159,19 @@ for axis in ax:
     cuencas.boundary.plot(ax=axis, color="k", lw=0.5)
     axis.add_feature(cf.LAND, color='k', alpha=0.2, rasterized=True)
     axis.add_feature(cf.OCEAN, rasterized=True)
+    # axis.set_extent([-72, -69, -32.4, -37.3])
+    # # axis.set_extent([-74, -69.7, -33, -34.32], crs=ccrs.PlateCarree())
+    # axis.coastlines(rasterized=True)
+    # axis.add_feature(cf.BORDERS)
+    # gl = axis.gridlines(linestyle=":")
+    # gl.xlocator = mticker.FixedLocator([])
+    # gl.ylocator = mticker.FixedLocator([-37, -36, -35, -34, -33])
+    # gl.top_labels = False
+    # gl.right_labels = False
+    # gl.xlines = False
+    # cuencas.boundary.plot(ax=axis, color="k", lw=0.5)
+    # axis.add_feature(cf.LAND, color='k', alpha=0.2, rasterized=True)
+    # axis.add_feature(cf.OCEAN, rasterized=True)
 
 
 mapa0 = ax[0].pcolormesh(LON, LAT, dSWEmax.where(mask),
@@ -216,7 +234,103 @@ gl.top_labels = False
 gl.right_labels = False
 gl.xlines = False
 gl.ylines = False
-plt.savefig('plots/ROS_STATS.pdf', dpi=150, bbox_inches='tight')
+
+# gl = ax[0].gridlines(draw_labels=True, linestyle=":")
+# gl.xlocator = mticker.FixedLocator([])
+# gl.ylocator = mticker.FixedLocator([-37, -36, -35, -34, -33])
+# gl.top_labels = False
+# gl.right_labels = False
+# gl.xlines = False
+# gl.ylines = False
+plt.savefig('plots/ROS_STATS_final.pdf', dpi=150, bbox_inches='tight')
+
+#%%
+
+fig, ax = plt.subplots(1, 4, sharex=True, sharey=True,
+                       subplot_kw={"projection": ccrs.PlateCarree()},
+                       figsize=(18, 6))
+
+
+plt.rcParams.update({'font.size': 18})
+ax = ax.ravel()
+for axis in ax:
+    axis.set_extent([-72, -69, -32.4, -37.3])
+    # axis.set_extent([-74, -69.7, -33, -34.32], crs=ccrs.PlateCarree())
+    axis.coastlines(rasterized=True)
+    axis.add_feature(cf.BORDERS)
+    gl = axis.gridlines(linestyle=":")
+    gl.xlocator = mticker.FixedLocator([])
+    gl.ylocator = mticker.FixedLocator([-37, -36, -35, -34, -33])
+    gl.top_labels = False
+    gl.right_labels = False
+    gl.xlines = False
+    cuencas.boundary.plot(ax=axis, color="k", lw=0.5)
+    axis.add_feature(cf.LAND, color='k', alpha=0.2, rasterized=True)
+    axis.add_feature(cf.OCEAN, rasterized=True)
+
+
+mapa0 = ax[0].pcolormesh(LON, LAT, dSWEmax.where(mask),
+                         cmap=cmocean.cm.deep,
+                         transform=ccrs.PlateCarree(),
+                         rasterized=True,
+                         norm=mpl.colors.Normalize(-25, 0))
+mapa1 = ax[1].pcolormesh(LON, LAT, dswe_vs_pr.where(mask),
+                         rasterized=True,
+                         transform=ccrs.PlateCarree(),
+                         cmap=cmocean.cm.ice_r,
+                         norm=mpl.colors.Normalize(0, 0.5))
+mapa2 = ax[2].pcolormesh(LON, LAT, ROS_rainratio.where(mask),
+                         rasterized=True,
+                         transform=ccrs.PlateCarree(),
+                         cmap=cmocean.cm.rain,
+                         norm=mpl.colors.Normalize(0, 1))
+
+mapa3 = ax[3].pcolormesh(LON, LAT,
+                         trend.where(mask).where(trend != 0),
+                         cmap="RdBu_r",
+                         transform=ccrs.PlateCarree(),
+                         rasterized=True,
+                         norm=mpl.colors.Normalize(-12, 12))
+# mapa2 = ax[2].pcolormesh(LON, LAT,
+#                          pvalues.where(mask).where(trend != 0),
+#                          cmap='Purples',
+#                          transform=ccrs.PlateCarree(),
+#                          rasterized=True,
+#                          norm=mpl.colors.Normalize(0, 1))
+# mapa3 = ax[3].pcolormesh(LON, LAT,
+#                          ROS_rainratio.where(mask),
+#                          cmap='PRGn',
+#                          transform=ccrs.PlateCarree(),
+#                          rasterized=True,
+#                          norm=mpl.colors.TwoSlopeNorm(1, 0, 2))
+
+# ax[1].pcolormesh(LON, LAT,
+#                  pvalues.where(mask).where(pvalues > 0.05).where(trend != 0),
+#                  cmap="bone", alpha=0.1, vmin=1, vmax=1,
+#                  rasterized=True, linewidth=0)
+
+
+ax[0].set_title("Yearly mean of\nmaximum SWE loss\non ROS days\n"+r"($mm$)")
+ax[1].set_title("SWE contribution\nto total aviable\nwater for runoff\n(-)")
+ax[2].set_title("ROS mean\nrainfall over\nextreme rainfall\n(-)")
+ax[3].set_title("Yearly ROS\ndays Trend\n"+r"($\frac{N°ROS Days}{year}$)")
+# ax[2].set_title("Yearly ROS\ndays Trend\npvalue"+"\n(-)")
+# ax[3].set_title("")
+
+cb0 = fig.colorbar(mapa0, ax=ax[0], aspect=40)
+cb1 = fig.colorbar(mapa1, ax=ax[1], aspect=40)
+cb2 = fig.colorbar(mapa2, ax=ax[2], aspect=40)
+cb3 = fig.colorbar(mapa3, ax=ax[3], aspect=40)
+
+
+gl = ax[0].gridlines(draw_labels=True, linestyle=":")
+gl.xlocator = mticker.FixedLocator([])
+gl.ylocator = mticker.FixedLocator([-37, -36, -35, -34, -33])
+gl.top_labels = False
+gl.right_labels = False
+gl.xlines = False
+gl.ylines = False
+plt.savefig('plots/ROS_STATS_final_small.pdf', dpi=150, bbox_inches='tight')
 # %%
 fig, ax = plt.subplots(1, 4, sharex=True, sharey=True,
                        subplot_kw={"projection": ccrs.PlateCarree()},
@@ -240,7 +354,7 @@ for axis in ax:
     axis.add_feature(cf.OCEAN, rasterized=True)
 
 
-mask = (ROS_days/mean_rainydays != 0).values
+# mask = (ROS_days/mean_rainydays != 0).values
 mapa0 = ax[0].pcolormesh(LON, LAT, mean_rainydays,
                          cmap="cividis_r",
                          transform=ccrs.PlateCarree(),
@@ -253,7 +367,7 @@ mapa2 = ax[2].pcolormesh(LON, LAT,
                          (ROS_days/mean_rainydays),
                          cmap="BuPu", transform=ccrs.PlateCarree(),
                          rasterized=True)
-mapa3 = ax[3].pcolormesh(LON, LAT, timing.where(mask),
+mapa3 = ax[3].pcolormesh(LON, LAT, timing.where(mask.values.astype(bool)),
                          cmap='nipy_spectral',
                          transform=ccrs.PlateCarree(), rasterized=True)
 
@@ -279,7 +393,7 @@ gl.top_labels = False
 gl.right_labels = False
 gl.xlines = False
 gl.ylines = False
-plt.savefig('plots/ROS_CORTESCR2METERA5_74W-68W-26S-38S_new.pdf', dpi=150,
+plt.savefig('plots/ROS_CORTESCR2METERA5_74W-68W-26S-38S_final.pdf', dpi=150,
             bbox_inches="tight")
 
 # %%
@@ -306,7 +420,7 @@ for axis in ax:
     axis.add_feature(cf.OCEAN, rasterized=True)
 
 
-mask = (ROS_days/mean_rainydays != 0).values
+# mask = (ROS_days/mean_rainydays != 0).values
 mapa0 = ax[0].pcolormesh(LON, LAT, mean_rainydays,
                          cmap="cividis_r",
                          transform=ccrs.PlateCarree(),
@@ -319,7 +433,7 @@ mapa2 = ax[2].pcolormesh(LON, LAT,
                          (ROS_days/mean_rainydays),
                          cmap="BuPu", transform=ccrs.PlateCarree(),
                          rasterized=True)
-mapa3 = ax[3].pcolormesh(LON, LAT, timing.where(mask),
+mapa3 = ax[3].pcolormesh(LON, LAT, timing.where(mask.values.astype(bool)),
                          cmap='nipy_spectral',
                          transform=ccrs.PlateCarree(), rasterized=True)
 
@@ -343,5 +457,5 @@ gl.top_labels = False
 gl.right_labels = False
 gl.xlines = False
 gl.ylines = False
-plt.savefig('plots/ROS_CORTESCR2METERA5_72W-69W-32S-37S_new.pdf', dpi=150,
+plt.savefig('plots/ROS_CORTESCR2METERA5_72W-69W-32S-37S_final.pdf', dpi=150,
             bbox_inches="tight")
