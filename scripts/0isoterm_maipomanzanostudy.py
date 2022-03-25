@@ -32,9 +32,9 @@ from scipy.stats import linregress
 # Basin hypsometry
 # =============================================================================
 cuenca = "RioMaipoEnElManzano"
-curva_hipso = pd.read_csv("datos/topography/basins/hipso/"+cuenca+"_Hipso.csv")
+curva_hipso = pd.read_csv("datos/topography/basins/hypso/"+cuenca+"_hypso.csv")
 curva_hipso.drop_duplicates(subset="Area_km2", inplace=True)
-basin = gpd.read_file("datos/vector/RioMaipoEnElManzano.shp")
+basin = gpd.read_file("datos/vector/basins/RioMaipoEnElManzano.shp")
 
 # =============================================================================
 # #load data from sto domingo radiosonde

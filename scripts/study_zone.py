@@ -52,6 +52,16 @@ cuencas = []
 for path in paths:
     cuencas.append(gpd.read_file(path))
 cuencas = pd.concat(cuencas)
+cuencas.index = cuencas.gauge_name.map(lambda x: x.replace(" ",""))
+cuencas = cuencas.loc[['RioAconcaguaEnChacabuquito',
+                       'RioMapochoEnLosAlmendros',
+                       'RioMaipoEnElManzano',
+                       'RioCachapoalEnPteTermasDeCauquenes',
+                       'RioTinguiriricaBajoLosBriones',
+                       'RioTenoDespuesDeJuntaConClaro',
+                       'RioColoradoEnJuntaConPalos',
+                       'RioMauleEnArmerillo',
+                       'RioUbleEnSanFabianN2']]
 
 ros = xr.open_dataset('datos/ROS/CORTES_CR2MET_ERA5/ROS_1984.nc')
 landcover = xr.open_dataset('datos/landcover/LC_CHILE_2014_b_final.nc').Band1

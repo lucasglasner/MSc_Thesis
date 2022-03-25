@@ -9,14 +9,17 @@
 # =============================================================================
 
 Codes:
-    
-    242: Ñuble En San Fabian
-    182: Teno Despues De Junta Con Claro
-    140 o 939: Mapocho En Los Almendros
+    111: Aconcagua En Chacabuquito
+    939: Mapocho En Los Almendros
     132: Maipo En El Manzano
-    143: Quebrada De Macul
     458: San José De Guayacan
-    
+    143: Quebrada De Macul
+    158: Canal Sauzal En Pte Termas De Cauquenes (Cachapoal)
+    170: Tinguiririca Bajo Los Briones
+    182: Teno Despues De Junta Con Claro
+    183: Palos En Junta Con Colorado
+    206: Maule En Armerillo
+    242: Ñuble En San Fabian
 
 """
 # %%
@@ -27,11 +30,13 @@ import os
 # https://vismet.cr2.cl/api/measure/by-station/182/by-measure-type/1/by-timestamp/1646967600/by-interval/72/csv
 #https://vismet.cr2.cl/api/measure/by-station/143/by-measure-type/1/by-timestamp/1646967600/by-interval/72/csv
 base_url = "https://vismet.cr2.cl/api/measure/by-station/"
-dates = pd.date_range("2010-03-01", "2020-07-01",
+dates = pd.date_range("2015-03-01", "2020-12-31",
                       freq="7d")
 dates = dates[1:]
-station_code = 132
+station_code = 111
 
+
+#%%
 interval = 168
 
 url = base_url + str(station_code)+"/"

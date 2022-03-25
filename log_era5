@@ -1,0 +1,70 @@
+2022-03-23 10:39:52,473 INFO Welcome to the CDS
+2022-03-23 10:39:52,473 INFO Sending request to https://cds.climate.copernicus.eu/api/v2/resources/reanalysis-era5-single-levels
+2022-03-23 10:39:52,789 INFO Request is queued
+2022-03-23 10:58:28,671 INFO Request is running
+2022-03-23 11:02:31,570 INFO Request is completed
+2022-03-23 11:02:31,570 INFO Downloading https://download-0012-clone.copernicus-climate.eu/cache-compute-0012/cache/data1/adaptor.mars.internal-1648044045.0499768-440-5-b9834dc6-f737-4711-bf91-cb9020eb2e8f.nc to download_RioUbleEnSanFabianN2_2011.nc (52.4K)
+  0%|          | 0.00/52.4k [00:00<?, ?B/s] 31%|███       | 16.0k/52.4k [00:00<00:00, 57.9kB/s]                                                    2022-03-23 11:02:33,519 INFO Download rate 26.9K/s
+2022-03-23 11:02:34,159 INFO Welcome to the CDS
+2022-03-23 11:02:34,159 INFO Sending request to https://cds.climate.copernicus.eu/api/v2/resources/reanalysis-era5-single-levels
+2022-03-23 11:02:34,489 INFO Request is queued
+2022-03-23 11:21:09,767 INFO Request is running
+2022-03-23 11:29:15,237 INFO Request is completed
+2022-03-23 11:29:15,237 INFO Downloading https://download-0003-clone.copernicus-climate.eu/cache-compute-0003/cache/data0/adaptor.mars.internal-1648045649.3020303-704-12-d7b1efa5-2214-4f24-95c9-4a91e78408f6.nc to download_RioUbleEnSanFabianN2_2012.nc (52.5K)
+  0%|          | 0.00/52.5k [00:00<?, ?B/s] 30%|███       | 16.0k/52.5k [00:00<00:00, 54.7kB/s]                                                    2022-03-23 11:29:17,061 INFO Download rate 28.8K/s
+2022-03-23 11:29:17,643 INFO Welcome to the CDS
+2022-03-23 11:29:17,643 INFO Sending request to https://cds.climate.copernicus.eu/api/v2/resources/reanalysis-era5-single-levels
+2022-03-23 11:29:17,962 INFO Request is queu2022022-03-23 11:55:57,204 INFO Request is running
+2022-03-23 12:02:01,878 INFO Request is completed
+2022-03-23 12:02:01,878 INFO Downloading https://download-0015-clone.copernicus-climate.eu/cache-compute-0015/cache/data0/adaptor.mars.internal-1648047648.738168-23601-2-814787ee-4378-4256-a81a-46fdb993cbb5.nc to download_RioUbleEnSanFabianN2_2013.nc (52.4K)
+  0%|          | 0.00/52.4k [00:00<?, ?B/s] 32%|███▏      | 17.0k/52.4k [00:00<00:00, 57.2kB/s]                                                    2022-03-23 12:02:03,712 INFO Download rate 28.6K/s
+2022-03-23 12:02:04,324 INFO Welcome to the CDS
+2022-03-23 12:02:04,324 INFO Sending request to https://cds.climate.copernicus.eu/api/v2/resources/reanalysis-era5-single-levels
+2022-03-23 12:02:04,663 INFO Request is que20222022-03-23 12:222022-03-23 12:26:28,130 INFO Re22022-03-23 12:262022-03-23 12:28:29,466 INFO Request is completed
+2022-03-23 12:28:29,466 INFO Downloading https://download-0015-clone.copernicus-climate.eu/cache-compute-0015/cache/data5/adaptor.mars.internal-1648049241.3933175-3212-3-a0ff535e-acf3-4142-99bd-163313e13419.nc to download_RioColoradoEnJuntaConPalos_2014.nc (52.4K)
+  0%|          | 0.00/52.4k [00:00<?, ?B/s] 31%|███       | 16.0k/52.4k [00:00<00:00, 54.9kB/s]                                                    2022-03-23 12:28:31,319 INFO Download rate 28.3K/s
+2022-03-23 12:28:31,942 INFO Welcome to the CDS
+2022-03-23 12:28:31,942 INFO Sending request to https://cds.climate.copernicus.eu/api/v2/resources/reanalysis-era5-single-levels
+2022-03-23 12:28:32,322022-03-23 12:38:11,218 WARNING Recovering from connection error [HTTPSConnectionPool(host='cds.climate.copernicus.eu', port=443): Read timed out. (read timeout=60)], attemps 0 of 500
+2022-03-23 12:38:11,218 WARNING Retrying in 120 seconds22022-03-23 12:40:11,317 INFO Retrying now...
+2022-03-23 12:46:16,413 I2022-03-23 12:48:04,6272022-03-23 12:50:19,012 INFO Request is completed
+2022-03-23 12:50:19,012 INFO Downloading https://download-0002-clone.copernicus-climate.eu/cache-compute-0002/cache/data8/adaptor.mars.internal-1648050508.1436245-25707-15-145eb8ba-f445-42d4-b6ec-101ff02b5409.nc to download_RioUbleEnSanFabianN2_2015.nc (52.4K)
+  0%|          | 0.00/52.4k [00:00<?, ?B/s] 31%|███       | 16.0k/52.4k [00:00<00:00, 54.3kB/s]                                                    2022-03-23 12:50:20,844 INFO Download rate 28.6K/s
+2022-03-23 12:50:21,152 INFO Welcome to the CDS
+2022-03-23 12:50:21,152 INFO Sending request to https://cds.climate.copernicus.eu/api/v2/resources/reanalysis-era5-single-levels
+2022-03-23 12:50:21,457 INFO Request is que2022-2022-03-23 13:12:55,552 INFO Request is running
+2022-03-23 13:16:58,245 INFO Request is completed
+2022-03-23 13:16:58,245 INFO Downloading https://download-0012-clone.copernicus-climate.eu/cache-compute-0012/cache/data2/adaptor.mars.internal-1648052161.49759-8114-8-f46640be-23fd-42b8-960d-b4f51c113c91.nc to download_RioMauleEnArmerillo_2016.nc (52.5K)
+  0%|          | 0.00/52.5k [00:00<?, ?B/s] 30%|███       | 16.0k/52.5k [00:00<00:00, 59.6kB/s]                                                    2022-03-23 13:16:59,975 INFO Download rate 30.4K/s
+2022-03-23 13:17:00,564 INFO Welcome to the CDS
+2022-03-23 13:17:00,565 INFO Sending request to https://cds.climate.copernicus.eu/api/v2/resources/reanalysis-era5-single-levels
+2022-03-23 13:17:00,867 INFO Request is queued22022-03-23 13:49:45,851 INFO Request is running
+2022-03-23 13:53:49,017 INFO Request is completed
+2022-03-23 13:53:49,018 INFO Downloading https://download-0010-clone.copernicus-climate.eu/cache-compute-0010/cache/data7/adaptor.mars.internal-1648054318.3720984-7187-7-53e72986-1615-4ef5-9a15-07723864af1b.nc to download_RioMauleEnArmerillo_2017.nc (52.4K)
+  0%|          | 0.00/52.4k [00:00<?, ?B/s] 31%|███       | 16.0k/52.4k [00:00<00:00, 55.9kB/s]                                                    2022-03-23 13:53:50,911 INFO Download rate 27.7K/s
+2022-03-23 13:53:51,504 INFO Welcome to the CDS
+2022-03-23 13:53:51,505 INFO Sending request to https://cds.climate.copernicus.eu/api/v2/resources/reanalysis-era5-single-levels
+2022-03-23 13:53:51,912 INFO Request is queued
+2022-03-23 14:22:33,534 INFO Request is running
+2022-03-23 14:35:39,946 INFO Request is completed
+2022-03-23 14:35:39,947 INFO Downloading https://download-0008-clone.copernicus-climate.eu/cache-compute-0008/cache/data1/adaptor.mars.internal-1648056735.2154574-6118-7-4e302ded-0768-43ba-bb2e-0a94f4ee6b24.nc to download_RioMauleEnArmerillo_2018.nc (52.4K)
+  0%|          | 0.00/52.4k [00:00<?, ?B/s]                                           2022-03-23 14:35:42,519 INFO Download rate 20.4K/s
+2022-03-23 14:35:43,332 INFO Welcome to the CDS
+2022-03-23 14:35:43,332 INFO Sending request to https://cds.climate.copernicus.eu/api/v2/resources/reanalysis-era5-single-levels
+2022-03-23 14:35:43,644 INFO Request is queued
+2022-03-23 15:12:30,311 INFO Request is running
+2022-03-23 15:24:39,314 INFO Request is completed
+2022-03-23 15:24:39,320 INFO Downloading https://download-0013-clone.copernicus-climate.eu/cache-compute-0013/cache/data9/adaptor.mars.internal-1648059756.3047566-12275-7-932693a2-ad1c-4043-800c-3986eb8953ca.nc to download_RioMauleEnArmerillo_2019.nc (52.4K)
+  0%|          | 0.00/52.4k [00:00<?, ?B/s] 31%|███       | 16.0k/52.4k [00:00<00:00, 54.6kB/s]                                                    2022-03-23 15:24:41,574 INFO Download rate 23.3K/s
+2022-03-23 15:24:42,175 INFO Welcome to the CDS
+2022-03-23 15:24:42,176 INFO Sending request to https://cds.climate.copernicus.eu/api/v2/resources/reanalysis-era5-single-levels
+2022-03-23 15:24:42,511 INFO Request is queued
+2022-03-23 15:35:11,951 INFO Request is running
+2022-03-23 15:39:16,749 INFO Request is completed
+2022-03-23 15:39:16,2022-03-23 15:40:54,024 INFO Request is completed
+2022-03-23 15:40:54,034 INFO Downloading https://download-0005-clone.copernicus-climate.eu/cache-compute-0005/cache/data2/adaptor.mars.internal-1648060729.479578-14626-18-cd3e0e85-7c8a-4d9b-8c03-a7cc8729ec78.nc to download_RioMaipoEnElManzano_2020.nc (52.5K)
+  0%|          | 0.00/52.5k [00:00<?, ?B/s] 30%|███       | 16.0k/52.5k [00:00<00:01, 26.2kB/s]                                                    2022-03-23 15:40:57,237 INFO Download rate 16.4K/s
+                                             2022-03-23 15:34:50,267 INFO Download rate 19.8K/s
+                                                2022-03-23 15:34:49,985 INFO Download rate 19.7K/s
+f61-b23c-46904c36f6ea.nc to download_RioAconcanguaEnChacabuquito_2020.nc (52.5K)
+  0%|          | 0.00/52.5k [00:00<?, ?B/s] 17%|█▋        | 9.00k/52.5k [00:00<00:01, 29.7kB/s] 49%|████▉     | 26.0k/52.5k [00:00<00:00, 45.0kB/s] 80%|███████▉  | 42.0k/52.5k [00:00<00:00, 47.3kB/s]                                                    2022-03-23 15:28:45,077 INFO Download rate 18.2K/s

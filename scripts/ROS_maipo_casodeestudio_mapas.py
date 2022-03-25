@@ -152,89 +152,77 @@ ROS = ROS.reindex(lat=SWE.lat,lon=SWE.lon, method='nearest')
 # =============================================================================
 # Make plot of maipo manzano fSCA
 # =============================================================================
-# days = ["2013-08-05", "2013-08-07", "2013-08-09",
-#         "2013-08-11", "2013-08-13"]
-# titles = [datetime.datetime.strptime(d, '%Y-%m-%d').strftime('%b-%d')
-#           for d in days]
-# titles[0] = '2013\n'+titles[0]
-# titles = [p+'\n'+str(sca)+'%' for p, sca in zip(titles, SCA[days].values)]
-# fig, ax = plt.subplots(3, 5, subplot_kw={'projection': ccrs.PlateCarree()},
-#                        figsize=(8, 7))
-# plt.rc('font', size=18)
+days = ["2008-05-23","2008-05-29","2008-06-02","2008-06-04","2008-06-06"]
+titles = [datetime.datetime.strptime(d, '%Y-%m-%d').strftime('%b-%d')
+          for d in days]
+titles[0] = '2008\n'+titles[0]
+titles = [p+'\n'+str(sca)+'%' for p, sca in zip(titles, SCA[days].values)]
+fig, ax = plt.subplots(2, 5, subplot_kw={'projection': ccrs.PlateCarree()},
+                        figsize=(8, 7))
+plt.rc('font', size=18)
 
-# for axis in ax.ravel():
-#     axis.set_extent([-70.5, -69.7, -33, -34.32], crs=ccrs.PlateCarree())
-#     axis.add_feature(cf.BORDERS, ls=":")
-#     axis.add_feature(cf.LAND, alpha=0.2, color='k', rasterized=True)
+for axis in ax.ravel():
+    axis.set_extent([-70.5, -69.7, -33, -34.32], crs=ccrs.PlateCarree())
+    axis.add_feature(cf.BORDERS, ls=":")
+    axis.add_feature(cf.LAND, alpha=0.2, color='k', rasterized=True)
 
-# for i in range(len(days)):
-#     lon2d, lat2d = np.meshgrid(fSCA_t.lon, fSCA_t.lat)
-#     map1 = ax[0, i].pcolormesh(lon2d, lat2d,
-#                                fSCA_t.sel(time=days[i]),
-#                                rasterized=True,
-#                                cmap=cmocean.cm.ice,
-#                                norm=mpl.colors.Normalize(0, 100),
-#                                transform=ccrs.PlateCarree())
-#     ax[0, i].scatter(np.where(fSCA_t.where(fSCA_t > 100).sel(time=days[i]) > 100,
-#                               lon2d,
-#                               np.nan)[:-1, :-1],
-#                      np.where(fSCA_t.where(fSCA_t > 100).sel(time=days[i]) > 100,
-#                               lat2d,
-#                               np.nan)[:-1, :-1],
-#                      color='red',
-#                      s=0.0005,
-#                      rasterized=True)
-#     map1 = ax[1, i].pcolormesh(lon2d, lat2d,
-#                                fSCA_a.sel(time=days[i]),
-#                                rasterized=True,
-#                                cmap=cmocean.cm.ice,
-#                                norm=mpl.colors.Normalize(0, 100),
-#                                transform=ccrs.PlateCarree())
-#     ax[1, i].scatter(np.where(fSCA_a.where(fSCA_a > 100).sel(time=days[i]) > 100,
-#                               lon2d,
-#                               np.nan)[:-1, :-1],
-#                      np.where(fSCA_a.where(fSCA_a > 100).sel(time=days[i]) > 100,
-#                               lat2d,
-#                               np.nan)[:-1, :-1],
-#                      color='red',
-#                      s=0.0005,
-#                      rasterized=True)
+for i in range(len(days)):
+    lon2d, lat2d = np.meshgrid(fSCA_t.lon, fSCA_t.lat)
+    map1 = ax[0, i].pcolormesh(lon2d, lat2d,
+                                fSCA_t.sel(time=days[i]),
+                                rasterized=True,
+                                cmap=cmocean.cm.ice,
+                                norm=mpl.colors.Normalize(0, 100),
+                                transform=ccrs.PlateCarree())
+    ax[0, i].scatter(np.where(fSCA_t.where(fSCA_t > 100).sel(time=days[i]) > 100,
+                              lon2d,
+                              np.nan)[:-1, :-1],
+                      np.where(fSCA_t.where(fSCA_t > 100).sel(time=days[i]) > 100,
+                              lat2d,
+                              np.nan)[:-1, :-1],
+                      color='red',
+                      s=0.0005,
+                      rasterized=True)
+    map1 = ax[1, i].pcolormesh(lon2d, lat2d,
+                                fSCA_a.sel(time=days[i]),
+                                rasterized=True,
+                                cmap=cmocean.cm.ice,
+                                norm=mpl.colors.Normalize(0, 100),
+                                transform=ccrs.PlateCarree())
+    ax[1, i].scatter(np.where(fSCA_a.where(fSCA_a > 100).sel(time=days[i]) > 100,
+                              lon2d,
+                              np.nan)[:-1, :-1],
+                      np.where(fSCA_a.where(fSCA_a > 100).sel(time=days[i]) > 100,
+                              lat2d,
+                              np.nan)[:-1, :-1],
+                      color='red',
+                      s=0.0005,
+                      rasterized=True)
 
-#     lon2d, lat2d = np.meshgrid(SWE_mm.lon, SWE_mm.lat)
-#     SWE_plot = ax[2, i].pcolormesh(lon2d, lat2d,
-#                                    SWE_mm.sel(time=days[i]),
-#                                    rasterized=True,
-#                                    cmap=cmocean.cm.ice,
-#                                    norm=mpl.colors.LogNorm(1, 1e2),
-#                                    transform=ccrs.PlateCarree())
-#     ax[0, i].set_title(titles[i], fontsize=14)
-#     maipobasin.boundary.plot(ax=ax[0, i], transform=ccrs.PlateCarree(),
-#                              colors='forestgreen')
-#     maipobasin.boundary.plot(ax=ax[1, i], transform=ccrs.PlateCarree(),
-#                              colors='darkblue')
-#     maipobasin.boundary.plot(ax=ax[2, i], transform=ccrs.PlateCarree(),
-#                              colors='gold')
+    ax[0, i].set_title(titles[i], fontsize=14)
+    maipobasin.boundary.plot(ax=ax[0, i], transform=ccrs.PlateCarree(),
+                              colors='forestgreen')
+    maipobasin.boundary.plot(ax=ax[1, i], transform=ccrs.PlateCarree(),
+                              colors='darkblue')
 
-# ax[0, 0].scatter([], [], s=100, marker='s', color='red', label='No Data')
-# ax[0, 0].scatter([], [], s=100, marker='s',
-#                  color='forestgreen', label='MODIS/TERRA')
-# ax[0, 0].scatter([], [], s=100, marker='s',
-#                  color='darkblue', label='MODIS/AQUA')
-# ax[0, 0].scatter([], [], s=100, marker='s',
-#                  color='gold', label='CORTES_SWE')
-# ax[0, 0].legend(frameon=False, loc=(-1.1, 1.5), ncol=4,
-#                 fontsize=13)
 
-# add_labels(ax, xticks=[-70], yticks=[-33.2, -33.7, -34.2], linewidth=0)
-# box1, box2 = ax[0, -1].get_position(), ax[1, -1].get_position()
-# cax = fig.add_axes([box1.xmax*1.05, box2.ymin, 0.025, box1.ymax-box2.ymin])
-# fig.text(0.09, 0.905, 'SCA: ', ha='center', va='center', fontsize=14)
-# fig.colorbar(map1, cax=cax, label='Fraction of Snow\nCover Area (%)')
+ax[0, 0].scatter([], [], s=100, marker='s', color='red', label='No Data')
+ax[0, 0].scatter([], [], s=100, marker='s',
+                  color='forestgreen', label='MODIS/TERRA')
+ax[0, 0].scatter([], [], s=100, marker='s',
+                  color='darkblue', label='MODIS/AQUA')
+ax[0, 0].legend(frameon=False, loc=(-1.1, 1.5), ncol=4,
+                fontsize=13)
+
+add_labels(ax, xticks=[-70], yticks=[-33.2, -33.7, -34.2], linewidth=0)
+box1, box2 = ax[0, -1].get_position(), ax[1, -1].get_position()
+cax = fig.add_axes([box1.xmax*1.05, box2.ymin, 0.025, box1.ymax-box2.ymin])
+fig.text(0.09, 0.905, 'SCA: ', ha='center', va='center', fontsize=14)
+fig.colorbar(map1, cax=cax, label='Fraction of Snow\nCover Area (%)')
 
 # box3 = ax[-1, -1].get_position()
 # cax2 = fig.add_axes([box3.xmax*1.05, box3.ymin, 0.025, box3.ymax-box3.ymin])
-# fig.colorbar(SWE_plot, cax=cax2, ticks=[1, 1e1, 1e2, 1e3],
-#              label='Snow Water\n Equivalent\n (mm)')
+
 # plt.savefig('plots/caseofstudy_Aug2013/modis_maps.pdf',
             # dpi=150, bbox_inches='tight')
 

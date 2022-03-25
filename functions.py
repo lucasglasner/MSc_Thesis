@@ -108,7 +108,7 @@ def add_labels(geoaxes, yticks=[], xticks=[], **kwargs):
             gl.bottom_labels = False
         # return np.array(gridlines).reshape(geoaxes.shape)
     if len(geoaxes.shape) == 1:
-        gl = axis.gridlines(draw_labels=True)
+        gl = axis.gridlines(draw_labels=True,**kwargs)
 
 
 def seasonal_decompose(ts, period, nharmonics=3, bandwidth=2):

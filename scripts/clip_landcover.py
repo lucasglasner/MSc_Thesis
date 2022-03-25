@@ -27,6 +27,7 @@ basins = [5410002, 7355002, 6008005, 6027001, 6013001, 5722002, 7317005,
           7115001, 7112001, 7116001, 7374001, 7372001]
 # basins = ['Rio Choapa En Salamanca']
 
+basins=[7321002]
 # %%
 
 polygons = [basin_polygons[basin_polygons["gauge_id"] == b] for b in basins]
