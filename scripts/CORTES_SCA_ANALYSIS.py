@@ -114,6 +114,7 @@ ax.set_yticks(np.arange(-1,1+0.3,0.2))
 ax.set_ylim(-0.85,0.85)
 ax.set_ylabel('SCA Bias (-)')
 ax.axhline(0, color='k', ls="--", lw=0.8)
+ax.axvspan(6,10,color='grey',alpha=0.5)
 
 
 for c,label in zip(colors,['winter','spring','summer','autumn']):

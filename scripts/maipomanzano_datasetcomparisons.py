@@ -13,16 +13,16 @@ Created on Mon Nov 22 11:14:35 2021
 
 """
 # %%
-
+import sys
+sys.path.append('scripts/')
 
 from taylorDiagram import TaylorDiagram
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.stats as st
 import pandas as pd
-import sys
 
-sys.path.append('scripts/')
+
 
 
 def seasonal_decompose(ts, period, nharmonics=3, bandwidth=2):
@@ -154,7 +154,8 @@ SC_spring = snowcovers[[x in spring for x in snowcovers.index.month]]
 # Figure showing taylor diagram for each season
 # =============================================================================
 
-plt.rcParams.update({'font.size': 12})
+plt.rcParams.update({'font.size': 14})
+# plt.rc('font',size=18)
 # Create figure
 fig = plt.figure(figsize=(18, 13.5))
 # Define axes grid, and positions
@@ -226,19 +227,24 @@ for i, name in enumerate(var_names):  # Loop over rows+
         # Save taylor class and axes
         taylors[i].append(td)
         axes[i].append(td.ax)
+        # xticks = td.ax.get_xticks()
+        # yticks = td.ax.get_yticks()
+        # td.ax.set_xticks(xticks[::2])
+        # td.ax.set_yticks(yticks[::2])
     # Add legend
-    lg = axes[i][-1].legend(loc=(1.2, 0.2), ncol=2, fontsize=15)
+    lg = axes[i][-1].legend(loc=(1.2, 0.2), ncol=2, fontsize=18)
     # lg.set_title(titles[i], prop={"size": 18})
 
 # Add a colorbar
-x = axes[0][3].get_position().xmax+0.39
-y = axes[2][3].get_position().ymin
-w = 0.01
-h = axes[0][3].get_position().ymax-axes[2][3].get_position().ymin
+x = axes[-1][0].get_position().xmin
+y = axes[-1][-1].get_position().ymin-0.1
+w = axes[-1][-1].get_position().xmax-axes[-1][0].get_position().xmin
+h = 0.025
 cax = fig.add_axes([x, y, w, h])
 cb = fig.colorbar(td.samplePoints[1], cax=cax,
-                  ticks=np.arange(-50, 50+5, 5))
-cb.set_label("Percent Bias (%)", fontsize=18)
+                  ticks=np.arange(-50, 50+5, 10), orientation='horizontal')
+cb.set_label("Percent Bias (%)", fontsize=30)
+cb.ax.tick_params(labelsize=25)
 del x, y, w, h
 
 # Add titles
@@ -246,17 +252,17 @@ for j in range(len(seasons)):
     bbox = axes[0][j].get_position()
     fig.text(bbox.xmin+.08, bbox.ymax*1.05,
              seasons[j].capitalize(), ha="center", va="center",
-             fontsize=18)
+             fontsize=30)
 
 # Add titles
 for j in range(len(var_names)):
     bbox = axes[j][0].get_position()
     fig.text(bbox.xmin-0.05, bbox.ymin+0.1,
              titles[j].capitalize(), ha="center", va="center",
-             fontsize=18, rotation=90)
+             fontsize=30, rotation=90)
 # Add xlabel
 fig.text(0.5, 0.07, "Standard deviation", ha="center",
-         va="center", fontsize=18)
+         va="center", fontsize=30)
 
 
 # # Adjust figure and save

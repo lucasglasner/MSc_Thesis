@@ -12,26 +12,31 @@ import pandas as pd
 import cartopy.crs as ccrs
 from glob import glob
 import geopandas as gpd
+from functions import seasonal_decompose
 #%%
 
 domain1 = [-74, -68, -26, -38]
 pr = xr.open_mfdataset(glob('datos/cr2met/complete_cr2met/CR2MET_pr_v2.0_*')).pr
 pr = pr.sel(lat=slice(domain1[3],domain1[2]),
-            lon=slice(domain1[0],domain1[1]))
+            lon=slice(domain1[0],domain1[1]),
+            time=slice("2000","2021"))
 pr = pr.groupby('time.year').sum().mean(dim='year').load()
 
 
 temp = xr.open_mfdataset(glob('datos/cr2met/complete_cr2met/CR2MET_t2m*')).t2m
 temp = temp.sel(lat=slice(domain1[3],domain1[2]),
-                lon=slice(domain1[0],domain1[1]))
+                lon=slice(domain1[0],domain1[1]),
+                time=slice("2000","2021"))
 temp = temp.mean(dim='time').load()
 
 
 swe = xr.open_mfdataset(glob('datos/ANDES_SWE_Cortes/regrid_cr2met/ANDES_SWE_*'))
-swemax = swe.max(dim='time').swe
+swemax = swe.max(dim='time').SWE
 swe = swe.sel(lat=slice(domain1[3],domain1[2]),
-              lon=slice(domain1[0],domain1[1]))
+              lon=slice(domain1[0],domain1[1]),
+              time=slice("2000","2021"))
 swe = swe.SWE.groupby('time.year').sum().mean(dim='year').load()
+
 
 #%%
 paths = glob('datos/vector/basins/Rio*.shp')
@@ -49,6 +54,78 @@ cuencas = cuencas.loc[['RioAconcaguaEnChacabuquito',
                        'RioColoradoEnJuntaConPalos',
                        'RioMauleEnArmerillo',
                        'RioUbleEnSanFabianN2']]
+
+basins = ['RioAconcaguaEnChacabuquito',
+          'RioMapochoEnLosAlmendros',
+          'RioMaipoEnElManzano',
+          'RioCachapoalEnPteTermasDeCauquenes',
+          'RioTinguiriricaBajoLosBriones',
+          'RioTenoDespuesDeJuntaConClaro',
+          'RioColoradoEnJuntaConPalos',
+          'RioUbleEnSanFabianN2']
+q = [pd.read_csv('datos/estaciones/dga/qinst_'+b+'.csv') for b in basins]
+
+for x in q:
+    x.index = pd.to_datetime(x.iloc[:,0])
+    x.drop(x.columns[0],inplace=True,axis=1)
+    
+q = pd.concat(q,axis=1)
+q.columns=basins
+
+mean_q = q.resample('d').mean()
+std_q = mean_q.groupby(mean_q.index.dayofyear).std()
+mean_q = mean_q.groupby(mean_q.index.dayofyear).mean()
+# std_q = mean_q.rolling(10,center=True).std()
+
+# mean_q = mean_q.shift(92)
+#%%
+fig,ax = plt.subplots(1,4,sharex=True,sharey=False,figsize=(18,3))
+import numpy as np
+for axis in ax:
+    axis.set_xticks(np.arange(12))
+    axis.set_xticklabels(['A','M','J','J','A','S','O','N','D','J','F','M'])
+
+
+def make_plot(ax,mean,std,**kwargs):
+    # title = mean.name
+    mean = seasonal_decompose(mean,365)[0]
+    std = seasonal_decompose(std,365)[0]
+    x = np.linspace(0,12,len(mean))
+    q = np.roll(mean,-92)
+    
+    # q=pd.Series(q).rolling(30,center=True).mean().interpolate('linear')
+    s = np.roll(std,-92)
+    # s = pd.Series(s).rolling(30,center=True).mean().interpolate('linear')
+    ax.plot(x,q,**kwargs)
+    ax.fill_between(x,q+1.96*std/np.sqrt(365),q-1.96*std/np.sqrt(365),
+                    color='grey', alpha=0.5)
+    # ax.set_title(title,loc='left')
+
+ax[0].set_ylabel(r'$\bar{Q}$ $(m^3/s)$')
+
+make_plot(ax[0],mean_q.iloc[:,2],std_q.iloc[:,2])
+make_plot(ax[1],mean_q.iloc[:,4],std_q.iloc[:,4],color='tab:red')
+make_plot(ax[2],mean_q.iloc[:,5],std_q.iloc[:,5],color='purple')
+make_plot(ax[3],mean_q.iloc[:,7],std_q.iloc[:,7],color='green')
+
+
+ax[0].set_title('Rio Maipo En El\nManzano',loc='left')
+ax[1].set_title('Rio Tinguiririca\nBajo Los Briones',loc='left')
+ax[2].set_title('Rio Teno Despues\nDe Junta Con Claro',loc='left')
+ax[3].set_title('Rio Ñuble En San\nFabián',loc='left')
+
+plt.savefig('plots/caudales_climatologia.pdf',dpi=150,bbox_inches='tight')
+# ax[0].plot(x,np.roll(mean_q['RioMaipoEnElManzano'],-92))
+
+# ax[1].plot(x,np.roll(mean_q['RioTinguiriricaBajoLosBriones'],-92))
+
+# ax[2].plot(x,np.roll(mean_q['RioTenoDespuesDeJuntaConClaro'],-92))
+# 
+# ax[3].plot(x,np.roll(mean_q['RioUbleEnSanFabianN2'],-92))
+
+
+
+
 #%%
 
 data = pd.read_csv('datos/estaciones/dgf/DATOSUTC_2004-2019.csv',index_col=0)
@@ -72,7 +149,7 @@ import matplotlib as mpl
 import cartopy.feature as cf
 import cmocean as cm
 plt.rc('font',size=18)
-fig = plt.figure(figsize=(12,6))
+fig = plt.figure(figsize=(14,6))
 ax0 = fig.add_subplot(141,projection=ccrs.PlateCarree())
 ax0.set_extent(domain1)
 ax1 = fig.add_subplot(142,projection=ccrs.PlateCarree())
@@ -99,7 +176,7 @@ for i,axis in enumerate([ax0,ax1,ax3,ax4,ax5]):
         cuencas.boundary.plot(ax=axis,transform=ccrs.PlateCarree(), color='k',
                               lw=0.5)
         gpd.GeoSeries(cuencas.boundary.loc['RioMaipoEnElManzano']).plot(ax=axis,transform=ccrs.PlateCarree(),
-                                                                        color='darkred',lw=0.8)
+                                                                        color='magenta',lw=0.8)
 # ax0.add_feature(cf.OCEAN)+
 cb = fig.colorbar(p,ax=ax0,orientation='horizontal', shrink=0.8, pad=0.02,
                   ticks=[0,800,1600,2400],
@@ -130,6 +207,11 @@ ax5.set_xticklabels(['J','F','M','A','M','J','J','A','S','O','N','D'],
 ax5.tick_params(axis='x',rotation=45)
 ax4.set_xticklabels(['']*12)
 
+x=pd.concat([sca[sca.index.year==i].reset_index().drop('fecha',axis=1)
+             for i in range(2000,2022)],axis=1)
+x.index = np.linspace(0,12,366)
+ax5.plot(x,color='grey',alpha=0.2)
 ax5.plot(np.arange(12),sca_ac)
+ax5.set_yticks([0,25,50,75,100])
 ax5.set_ylabel('Rio Maipo En\nEl Manzano SCA (%)')
 plt.savefig('plots/clima_chilecentral.pdf',dpi=150,bbox_inches='tight')

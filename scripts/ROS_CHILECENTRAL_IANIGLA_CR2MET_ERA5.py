@@ -95,6 +95,12 @@ for b in basins:
 pr_cr2met = pd.concat(pr_cr2met,axis=1)
 pr_cr2met.columns = basins
 
+pr_sanjose = pd.read_csv('datos/estaciones/pr_SanJoseMaipo.csv',dtype=str)
+pr_sanjose.index = pr_sanjose.iloc[:,0]+"-"+pr_sanjose.iloc[:,1]+"-"+pr_sanjose.iloc[:,2]
+# pr_sanjose.index = pd.to
+pr_sanjose.index = pd.to_datetime(pr_sanjose.index)
+pr_sanjose = pd.to_numeric(pr_sanjose.iloc[:,3])
+
 
 pr_stations_h = []
 for b in basins:
@@ -478,7 +484,7 @@ for j in range(len(names)):
 ax[0].legend(frameon=False, loc=(0,-2.5), ncol=3)
     
 
-# plt.savefig('plots/BIPLOTS_PC1PC2.pdf',dpi=150,bbox_inches='tight')
+# #plt.savefig('plots/BIPLOTS_PC1PC2.pdf',dpi=150,bbox_inches='tight')
 
 #%%
 fig,axis = plt.subplots(2,4,figsize=(12,6),sharex=True,sharey=True)
@@ -539,7 +545,7 @@ legend2 = ax[3].legend(handles, labels, loc=(1.8,-1),
                        title="30 days\nacumulated\nprecipitation\n(mm)",
                        frameon=False)
 
-# plt.savefig('plots/QvsPRvolume_plots.pdf',dpi=150,bbox_inches='tight')
+# #plt.savefig('plots/QvsPRvolume_plots.pdf',dpi=150,bbox_inches='tight')
 
 #%%
 
@@ -567,7 +573,7 @@ for i,b in enumerate(ac.columns):
     
 fig.text(0.08,0.5,'Mean anual cycle of ROS days', rotation=90, ha='center',va='center')
     
-plt.savefig('plots/ros_anualcycle.pdf',dpi=150,bbox_inches='tight')
+# #plt.savefig('plots/ros_anualcycle.pdf',dpi=150,bbox_inches='tight')
 
 
 #%%
@@ -587,7 +593,7 @@ for i,b in enumerate(ac.columns):
     ax[i].text(0,1,'pvalue: '+'{:.0%}'.format(m.pvalue),transform=ax[i].transAxes,
                fontsize=14)
 fig.text(0.08,0.5,'#ROS days per year', rotation=90, ha='center',va='center')
-plt.savefig('plots/ROS_days_per_year.pdf',dpi=150,bbox_inches='tight')
+# #plt.savefig('plots/ROS_days_per_year.pdf',dpi=150,bbox_inches='tight')
 
 #%%
 dd = data_daily.loc['RioMaipoEnElManzano'].droplevel(1)
@@ -598,7 +604,7 @@ ros_days = ros_days.unstack().T
 de = data_events.loc['RioMaipoEnElManzano']
 
 plt.rc('font',size=18)
-fig,ax = plt.subplots(1,3,figsize=(15,3))
+fig,ax = plt.subplots(1,4,figsize=(18,3))
 ax[0].bar(np.arange(12),ros_days.mean(axis=1),yerr=1.96*ros_days.std(axis=1)/np.sqrt(14),
           capsize=3, edgecolor='k')
 ax[0].set_ylim(0,3.5)
@@ -608,7 +614,7 @@ ax[0].set_xticks(np.arange(12))
 ax[0].set_xticklabels(['J','F','M','A','M','J','J','A','S','O','N','D'])
 ax[0].set_ylabel('Mean #ROS days')
 
-ax[1].boxplot(de[de.return_period>100].Qmaxd, positions=[0],patch_artist=True,
+ax[1].boxplot(de[(de.return_period>100)].Qmaxd, positions=[0],patch_artist=True,
               boxprops=dict(facecolor='tab:blue'),medianprops=dict(color='k'))
 ax[1].boxplot(de[(de.return_period>100)&((de.delta_sca<0))].Qmaxd,
               positions=[0.5],patch_artist=True,
@@ -619,22 +625,41 @@ ax[1].set_xticklabels(['100yr\nfloods','100yr\nROS\nfloods'])
 # ax[2].hist(dd.SL[dd.pr_cr2met>3],alpha=0.5,density=True)
 
 ax[2].boxplot(dd.pluv_area[dd.pr_cr2met>3].dropna(),positions=[0],
-              patch_artist=True,medianprops=dict(color='k'),boxprops=dict(facecolor='tab:red'))
-ax[2].boxplot(dd.pluv_area[(dd.pr_cr2met>3) & (dd.ros_area>0) &(dd.SCA_trend<0)].dropna(),positions=[0.25],
-              patch_artist=True,medianprops=dict(color='k'),boxprops=dict(facecolor='tab:purple'))
+              patch_artist=True,medianprops=dict(color='k'),boxprops=dict(facecolor='tab:red'),sym="")
+ax[2].boxplot(dd.pluv_area[(dd.pr_cr2met>3) & (dd.ros_area>0.1) &(dd.SCA_trend<0)].dropna(),positions=[0.25],
+              patch_artist=True,medianprops=dict(color='k'),boxprops=dict(facecolor='tab:purple'),sym="")
 
 
 ax[2].boxplot(dd.SCA[dd.pr_cr2met>3].dropna(),positions=[1],
-              patch_artist=True,medianprops=dict(color='k'),boxprops=dict(facecolor='cornflowerblue'))
+              patch_artist=True,medianprops=dict(color='k'),boxprops=dict(facecolor='cornflowerblue'),sym="")
 ax[2].boxplot(dd.SCA[(dd.pr_cr2met>3) & (dd.ros_area>0) &(dd.SCA_trend<0)].dropna(),positions=[1.25],
-              patch_artist=True,medianprops=dict(color='k'),boxprops=dict(facecolor='tab:purple'))
+              patch_artist=True,medianprops=dict(color='k'),boxprops=dict(facecolor='tab:purple'),sym="")
 
 ax[2].set_xticks([0.1,1.1])
 ax[2].set_xticklabels(['Pluvial\nArea','Snow\nCover\nArea'])
 
 ax[2].plot([],[],color='tab:purple',label='ROS days')
 ax[2].legend(frameon=False,loc=(0,1))
-plt.savefig('plots/maipomanzano/ROS_FINAL.pdf',dpi=150,bbox_inches='tight')
+
+# ax[3].set_yscale('log')
+pr_sanjose = pr_sanjose.reindex(dd.index)
+ax[3].boxplot(pr_sanjose[pr_sanjose>3].dropna(),positions=[0], sym="",widths=0.3,
+              patch_artist=True,medianprops=dict(color='k'),boxprops=dict(facecolor='tab:green'))
+ax[3].boxplot(pr_sanjose[(pr_sanjose>3) & (dd.ros_area>0.1) & (dd.SCA_trend<0)].dropna(),positions=[2], sym="",widths=0.3,
+              patch_artist=True,medianprops=dict(color='k'),boxprops=dict(facecolor='tab:purple'))
+ax[3].set_xticklabels(['Daily\nprecipitation','Daily\nPrecipitation\non ROS\ndays'])
+ax[3].set_yticks(np.arange(0,60,10))
+
+ax[0].text(0.9,1.05,'(a)',transform=ax[0].transAxes)
+ax[1].text(0.9,1.05,'(b)',transform=ax[1].transAxes)
+ax[2].text(0.9,1.05,'(c)',transform=ax[2].transAxes)
+ax[3].text(0.9,1.05,'(d)',transform=ax[3].transAxes)
+
+# ax[3].set_ylim(1e-1,1e3)
+# ax[3].boxplot(dd.pr_max[dd.pr_cr2met>3].dropna(),positions=[1])
+# ax[3].boxplot(dd.pr_max[dd.pr_cr2met>3].dropna(),positions=[1.25])
+
+#plt.savefig('plots/maipomanzano/ROS_FINAL.pdf',dpi=150,bbox_inches='tight')
 #%%
 
 polygons.index = basins
@@ -642,15 +667,15 @@ polygons['mean_ros_days'] = ycum.mean()
 polygons['mean_rain_days'] = [(data_daily.pr_cr2met>3).loc[b].groupby(data_daily.loc[b].index.get_level_values(0).year).sum().mean() for b in basins]
 polygons['ros_rain_ratio'] = polygons['mean_ros_days']/polygons['mean_rain_days']
 polygons['max_runoff_ros_day'] = data_events[(data_events.delta_sca<0) & (data_events.max_ros_area>0.1)].Qmaxd.unstack().T.max()
-polygons['mean_runoff_ros_day'] = data_events[(data_events.delta_sca<0) & (data_events.max_ros_area>0.1)].Qmaxd.unstack().T.mean()
+polygons['mean_runoff_ros_day'] = data_events[(data_events.delta_sca<0) & (data_events.max_ros_area>0.1)].Qmaxd.unstack().T.median()
 polygons['extreme_runoff'] = [np.percentile(data_events.Qmaxd[b],90) for b in basins]
 polygons['qros_over_qextreme'] = polygons['mean_runoff_ros_day']/polygons['extreme_runoff']
 
 polygons['max_deltasca_ros_day'] = -100*data_events[(data_events.delta_sca<0) & (data_events.max_ros_area>0.1)].delta_sca.unstack().T.min()
 polygons['mean_deltasca_ros_day'] = -100*data_events[(data_events.delta_sca<0) & (data_events.max_ros_area>0.1)].delta_sca.unstack().T.mean()
 
-polygons['p90'] = [np.percentile(data_events.pr_cum[b],90) for b in basins]
-polygons['pmean_ROS'] = [data_events[data_events.max_ros_area>0.1].pr_cum[b].mean() for b in basins]
+polygons['p90'] = [np.percentile(data_events[data_events.pr_cum>1].pr_cum[b],90) for b in basins]
+polygons['pmean_ROS'] = [data_events[data_events.max_ros_area>0.1].pr_cum[b].median() for b in basins]
 
 polygons['prros_over_prextreme'] = polygons['pmean_ROS']/polygons['p90']
 
@@ -663,10 +688,10 @@ fig,ax = plt.subplots(1,7,sharex=True,sharey=True,figsize=(14,10),
                       subplot_kw={'projection':ccrs.PlateCarree()})
 
 titles=['Mean ROS\ndays per\nyear','ROS/Rain\ndays\nratio',
-        'Mean runoff\non ROS days\nover extreme\nrunoff (Q90)','Maximum\nrunoff on\nROS days',
+        'Median runoff\non ROS days\nover extreme\nrunoff (Q90)','Maximum\nrunoff on\nROS days',
         'Mean SCA\nloss on\nROS days',
         'Maximum SCA\nloss on\nROS days',
-        'Mean\nprecipitation\non ROS days\nover extreme\nprecipitation\n(P90)'
+        'Median\nprecipitation\non ROS days\nover extreme\nprecipitation\n(P90)'
         ]
 cax = []
 for axis,c in zip(ax,range(len(titles))):
@@ -699,12 +724,13 @@ polygons.plot(ax=ax[1],column='ros_rain_ratio',cmap='BuPu',
               legend=True,
               cax=cax[1],
               legend_kwds={'orientation': "horizontal",
+                           'ticks':[0.2,0.3,0.4],
                            'label':'(-)'})
 polygons.plot(ax=ax[2],column='qros_over_qextreme',cmap=cm.cm.matter,
               legend=True,
               cax=cax[2],vmax=1,
               legend_kwds={'orientation': "horizontal",
-                           'ticks':[0.5,.9],
+                           'ticks':[0.5,1],
                            'label':'(-)'})
 polygons.plot(ax=ax[3],column='max_runoff_ros_day', cmap=cm.cm.turbid,
               legend=True,vmax=1.5e3,
@@ -732,4 +758,4 @@ ax[0].set_yticks(np.arange(-33,-38,-1))
 ax[0].set_yticklabels(["33°S","34°S","35°S","36°S","37°S"])
 ax[0].tick_params(axis="y",labelsize=14)
 
-plt.savefig('plots/ROS_STATS_final_basins.pdf',dpi=150,bbox_inches='tight')
+#plt.savefig('plots/ROS_STATS_final_basins.pdf',dpi=150,bbox_inches='tight')
