@@ -223,8 +223,8 @@ plt.rc('font', size=18)
 date = "2008-06-04"
 # date = "%YR%"
 yr, month, day = [int(n) for n in date.split("-")]
-interval = slice(datetime.datetime(yr, month, day)-datetime.timedelta(days=10),
-                 datetime.datetime(yr, month, day)+datetime.timedelta(days=2,hours=6))
+interval = slice(datetime.datetime(yr, month, day)-datetime.timedelta(days=9),
+                 datetime.datetime(yr, month, day)+datetime.timedelta(days=3))
 
 # interval = slice(datetime.datetime(2005, 10, 15),
 # datetime.datetime(2005, 10, 25))
@@ -274,6 +274,9 @@ qinst_mm = pd.read_csv("datos/estaciones/qinst_" +
                        cuenca+".csv", index_col=0).qinst_mm
 qinst_mm.index = pd.to_datetime(qinst_mm.index)
 
+pr_mm = pd.read_csv('datos/estaciones/vismet/pr_RioMaipoEnElManzano.csv')
+pr_mm.index = pd.to_datetime(pr_mm.Fecha)
+pr_mm = pr_mm.iloc[:,1][interval]
 
 pr_sanjose = pd.read_csv('datos/estaciones/pr_SanJoseMaipo.csv', dtype=str)
 pr_sanjose.index = pd.to_datetime(
@@ -326,13 +329,19 @@ ax[0].errorbar(SL_mm[interval].index+datetime.timedelta(hours=12),
                SL_mm['MODIS_H50'][interval],
                yerr=[yerr1[interval], yerr2[interval]],
                color='tab:blue', marker='o', mec='k', capsize=3,
-               ms=7, ls=":", label='Snow Limit', zorder=10)
-# ax[0].plot(h0_mm[interval], color="tab:red", ls=":",
-#             marker="o", ms=7, mec="k", label='Zero Degree Level')
+               ms=7, label='Snow Limit', zorder=10,lw=0,elinewidth=1)
+
+sl_interp = SL_mm[interval]['MODIS_H50']
+sl_interp = sl_interp.resample('h').interpolate('cubicspline')
+
+ax[0].plot(sl_interp.index,sl_interp,ls=":")
+
+h0_interp = H0_mm[interval].resample('h').interpolate('cubicspline')
+ax[0].plot(h0_interp, color="tab:red", ls=":")
 ax[0].errorbar(H0_mm[interval].index, H0_mm[interval],
                yerr=[np.ones(len(H0_mm[interval].index))*300,
                      np.zeros(len(H0_mm[interval].index))],
-               color='tab:red', ls=':',
+               color='tab:red', ls=':',elinewidth=1,lw=0,
                marker='o', ms=7, mec='k', label='Zero Degree Level',
                zorder=9,
                capsize=3)
@@ -359,6 +368,11 @@ ax[1].bar(pr_sanjose[interval].index,
 #           zorder=0, color='cadetblue', label='CR2MET Basin Mean',
 #           width=1, edgecolor='k')
 
+
+# ax[1].bar(pr_mm.index+pd.Timedelta(hours=1), pr_mm, alpha=0.5,
+          # zorder=0, color='cadetblue', label='Rio Maipo En El Manzano',
+          # width=pd.Timedelta(hours=1))
+
 ax[1].bar(pr_sanjose[interval].index+pd.Timedelta(hours=1), pr_sanjose[interval], alpha=0.5,
           zorder=0, color='cadetblue', label='San Jose De Maipo',
           width=pd.Timedelta(hours=1))
@@ -383,8 +397,8 @@ ax[2].set_yticks(np.arange(948, 962, 3))
 ax[2].set_ylabel('Barometric\nPressure $(mb)$')
 ax22 = ax[2].twinx()
 ax22.plot(datos_dgf[interval].iloc[:, 12], color='tab:green')
-ax22.set_ylim(0, 3.5)
-ax22.set_yticks(np.arange(1, 3+1, 1))
+ax22.set_ylim(0, 6)
+ax22.set_yticks(np.arange(1, 6, 1))
 ax22.set_ylabel('Wind Speed\n$(m/s)$')
 
 # =============================================================================
@@ -393,6 +407,7 @@ ax22.set_ylabel('Wind Speed\n$(m/s)$')
 
 ax[3].plot(qinst_mm[interval], color='darkblue', label='Surface Runoff')
 # ax[3].set_ylim(35, 73)
+# ax[3].set_yticks(np.arange(40,80,10))
 ax[3].set_yticks(np.arange(0,550+150,150))
 ax[3].plot(local_minimum_filter(qinst_mm[interval], 20)[0],
            color='chocolate', label='Base Flow')
@@ -400,10 +415,13 @@ ax[3].set_ylabel('Runoff\n$(m^3/s)$')
 ax[3].legend(loc=(0, 1.01), fontsize=16, ncol=2, frameon=False)
 
 for axis in ax:
-    axis.axvspan("2008-05-26", "2008-05-28", color='k', alpha=0.15)
-    axis.axvspan("2008-06-03", "2008-06-06", color='k', alpha=0.15)
-    axis.set_xlim(interval.start+pd.Timedelta(days=1),
-                  interval.stop)
+    # axis.axvspan("2013-08-06T18:00", "2013-08-08T06:00", color='k', alpha=0.15)
+    # axis.axvspan("2013-08-11", "2013-08-13", color='k', alpha=0.15)
+    
+    axis.axvspan("2008-05-26T06:00", "2008-05-28T12:00", color='k', alpha=0.15)
+    axis.axvspan("2008-06-03", "2008-06-05T12:00", color='k', alpha=0.15)
+    axis.set_xlim(interval.start,
+                  interval.stop-pd.Timedelta(hours=18))
     # axis.tick_params(axis='x',rotation=45)
     axis.grid(which='major', ls=":", axis="x")
     axis.grid(which='major', ls=":", axis="y")
@@ -422,8 +440,8 @@ fig.text(box.xmin, box.ymin*-0.6,
          str(interval.start.month)+'\n'+str(interval.start.year),
          ha='center', va='center')
 fig.text(box.xmax-0.41, box.ymin*-0.6,
-         str(interval.stop.month)+'\n'+str(interval.stop.year),
-         ha='center', va='center')
+          str(interval.stop.month)+'\n'+str(interval.stop.year),
+          ha='center', va='center')
 
 
 plt.savefig('plots/otroscasosdeestudio/seriestiempo_maipo_'+date+'.pdf', dpi=150,

@@ -29,20 +29,20 @@ import sys
 sys.path.append("functions.py")
 
 # %%
-interval = slice("2008-05-24T00:00","2008-06-06T00:00")
+interval = slice("2013-08-01T00:00","2013-08-20T00:00")
 surface_vars = xr.open_dataset(
-    'datos/era5/caseofstudy_Jun2008/era5_Jun2008_surface.nc',
+    'datos/era5/caseofstudy_Ago2013/era5_Ago2013_surface.nc',
     chunks=None).metpy.parse_cf()
 upper_vars = xr.open_dataset(
-    'datos/era5/caseofstudy_Jun2008/era5_Jun2008_upper.nc').metpy.parse_cf()
+    'datos/era5/caseofstudy_Ago2013/era5_Ago2013_upper.nc').metpy.parse_cf()
 
 
-days = pd.date_range("2008-05-24T12:00", "2008-06-10T12:00", freq='d')
+days = pd.date_range("2013-08-04T00:00", "2013-08-15T00:00", freq='d')
 
 
 times = days.strftime('%b-%d\n%H:%MZ')
 times = list(times)
-times[0] = '2008\n'+times[0]
+times[0] = '2013\n'+times[0]
 
 lon, lat = surface_vars.lon, surface_vars.lat
 lon2d, lat2d = np.meshgrid(lon, lat)
@@ -343,5 +343,5 @@ ax2.spines['right'].set_visible(False)
 ax2.spines['bottom'].set_visible(False)
 # ax2.spines['left'].set_visible(False)
 ax2.tick_params(axis="x", rotation=90)
-plt.savefig('plots/caseofstudy_Jun2008/atmospheric_river_evolution.pdf', dpi=150,
+plt.savefig('plots/caseofstudy_Aug2013/atmospheric_river_evolution.pdf', dpi=150,
             bbox_inches='tight')

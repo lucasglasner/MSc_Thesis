@@ -21,7 +21,7 @@ if compute:
     # method = 'CORTES - CR2MET'
     # method = "ERA5LAND"
     method = 'CORTES - CR2MET - ERA5'
-    yr = "%YR%"
+    yr = "2015"
     # yr = "2013"
     print("Current year: "+yr)
     if method == 'ERA5LAND':
@@ -114,4 +114,5 @@ PR: CR2MET, Boisier et al; FL: Zero Degree Level ERA5-ECMWF Reanalysis."}
         os.system('rm -rf '+outdir+'Rain-over-Snow_'+yr+'.nc')
         print('Done')
 # %%
-# os.system('for yr in {1984..2015}; do cat scripts/ROS_ChileCentral_computenetcdf.py | sed "s/%YR%/${yr}/g" > tmp/tmpscript; python3 tmp/tmpscript; done')
+# os.system('for yr in {1984..2015}; do cat scripts/ROS_ChileCentral_computenetcdf.py | \
+#sed "s/2015/${yr}/g" > tmp/tmpscript; python3 tmp/tmpscript; done')

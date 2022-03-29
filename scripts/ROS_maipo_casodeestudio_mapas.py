@@ -30,14 +30,14 @@ sys.path.append('functions.py')
 # LOAD STATIC DATA AND SET TIME FIX
 # =============================================================================
 # %%
-date = "2008-06-4"
+date = "2013-08-12"
 # date = "%YR%"
 yr, month, day = [int(n) for n in date.split("-")]
 interval = slice(datetime.datetime(yr, month, day)-datetime.timedelta(days=12),
-                 datetime.datetime(yr, month, day)+datetime.timedelta(days=4,hours=6))
+                 datetime.datetime(yr, month, day)+datetime.timedelta(days=12))
 
 basins = pd.concat([gpd.read_file(p)
-                   for p in glob('datos/vector/basins/*.shp')])
+                   for p in glob('datos/vector/basins/mains/*.shp')])
 basins.index = basins.gauge_id
 maipobasin = gpd.read_file('datos/vector/basins/RioMaipoEnElManzano.shp')
 
@@ -338,11 +338,11 @@ plt.savefig('plots/caseofstudy_Jun2008/pr_swe_fl_maps.pdf',
 
 
 # %%
-days = ["2008-05-25","2008-05-26", "2008-05-27", "2008-05-31",
-        "2008-06-03", "2008-06-04", "2008-06-05"]
+# days = ["2008-05-25","2008-05-26", "2008-05-27", "2008-05-31",
+#         "2008-06-03", "2008-06-04", "2008-06-05"]
 
-# days = ["2013-08-05", "2013-08-06", "2013-08-07","2013-08-08",
-#         "2013-08-10","2013-08-11","2013-08-12"]
+days = ["2013-08-06", "2013-08-07", "2013-08-08","2013-08-09",
+        "2013-08-10","2013-08-11","2013-08-12"]
 titles = [datetime.datetime.strptime(d, '%Y-%m-%d').strftime('%b-%d')
           for d in days]
 titles[0] = date[:4]+'\n'+titles[0]
@@ -443,5 +443,8 @@ for axis in ax[:, 0]:
     gl.top_labels = False
     gl.right_labels = False
     gl.bottom_labels = False
-plt.savefig('plots/caseofstudy_Jun2008/pr_swe_fl_maps_maipomanzano.pdf',
+# plt.savefig('plots/caseofstudy_Jun2008/pr_swe_fl_maps_maipomanzano.pdf',
+            # dpi=150, bbox_inches='tight')
+plt.savefig('plots/caseofstudy_Aug2013/pr_swe_fl_maps_maipomanzano.pdf',
             dpi=150, bbox_inches='tight')
+# 

@@ -365,35 +365,35 @@ var = ['direct_runoff_volume','precipitated_volume','mean_pr30cum',
 names = [r"$\int Q' dt$",r'$\int PR \cdot A_{p}dt$',r'$PR_{30d}$',
          r'$\Delta SCA$','Duration',r'$A_{ROS}$']
 
-matrix = data_events.droplevel(0)
-matrix = matrix[matrix.return_period>100]
+# matrix = data_events.droplevel(0)
+# matrix = matrix[matrix.return_period>100]
 
 
-PCA = []
-pc = [] 
-load = []
-r2 = []
+# PCA = []
+# pc = [] 
+# load = []
+# r2 = []
 
-for b in matrix.dropna().basin.unique():
-    v = matrix[matrix['basin']==b][var].dropna()
-    # scaler = StandardScaler().fit(v.values)
-    # scaler = scaler.transform(v.values)
-    scaler = whiten(v.values)
-    pca_x = pca(n_components = len(names))
-    p = pca_x.fit_transform(scaler, col_labels=names)
-    p['PC'].index = v.index
-    PCA.append(pca_x)
-    load.append(p['loadings'])
-    pc.append(p['PC'])
-    r2.append(pd.Series(p['variance_ratio']))
-#     pc.append(pd.DataFrame(p))
-#     load.append(pd.DataFrame(pca_x.components_))
-#     r2.append(pd.Series(pca_x.explained_variance_ratio_))
+# for b in matrix.dropna().basin.unique():
+#     v = matrix[matrix['basin']==b][var].dropna()
+#     # scaler = StandardScaler().fit(v.values)
+#     # scaler = scaler.transform(v.values)
+#     scaler = whiten(v.values)
+#     pca_x = pca(n_components = len(names))
+#     p = pca_x.fit_transform(scaler, col_labels=names)
+#     p['PC'].index = v.index
+#     PCA.append(pca_x)
+#     load.append(p['loadings'])
+#     pc.append(p['PC'])
+#     r2.append(pd.Series(p['variance_ratio']))
+# #     pc.append(pd.DataFrame(p))
+# #     load.append(pd.DataFrame(pca_x.components_))
+# #     r2.append(pd.Series(pca_x.explained_variance_ratio_))
     
    
-pc = pd.concat(pc,keys=matrix.dropna().basin.unique())    
-load = pd.concat(load, keys=matrix.dropna().basin.unique())
-r2 = pd.concat(r2, keys=matrix.dropna().basin.unique())    
+# pc = pd.concat(pc,keys=matrix.dropna().basin.unique())    
+# load = pd.concat(load, keys=matrix.dropna().basin.unique())
+# r2 = pd.concat(r2, keys=matrix.dropna().basin.unique())    
 # #%%
 
 # fig, ax = plt.subplots(2,4, sharex=True,sharey=True, figsize=(12,4))
@@ -411,77 +411,77 @@ colors = mpl.cm.nipy_spectral(np.linspace(0,.9,len(names)))
 # colors = mpl.colors.BASE_COLORS.values()
 colors = list(colors)
 
-fig,ax = plt.subplots(2,4, figsize=(14,6))
-fig.tight_layout(pad=2)
+# fig,ax = plt.subplots(2,4, figsize=(14,6))
+# fig.tight_layout(pad=2)
 
-plt.rc('font',size=18)
-ax = ax.ravel()
-for i,b in enumerate(matrix.dropna().basin.unique()):
-    ax[i].set_xlabel('PC1 ('+'{:.0%}'.format(r2.loc[b][0])+')', fontsize=14)
-    ax[i].set_ylabel('PC2 ('+'{:.0%}'.format(r2.loc[b][1])+')', fontsize=14)
+# plt.rc('font',size=18)
+# ax = ax.ravel()
+# for i,b in enumerate(matrix.dropna().basin.unique()):
+#     ax[i].set_xlabel('PC1 ('+'{:.0%}'.format(r2.loc[b][0])+')', fontsize=14)
+#     ax[i].set_ylabel('PC2 ('+'{:.0%}'.format(r2.loc[b][1])+')', fontsize=14)
     
-    ax[i].text(0,0,'{:.0%}'.format(r2.loc[b][0]+r2.loc[b][1]),
-               transform=ax[i].transAxes, fontsize=12)
+#     ax[i].text(0,0,'{:.0%}'.format(r2.loc[b][0]+r2.loc[b][1]),
+#                transform=ax[i].transAxes, fontsize=12)
     
-    comp = pc.loc[b].iloc[:,[0,1]]
-    loadings = load.loc[b].iloc[[0,1],:]
-    sx = 1/(comp.iloc[:,0].max()-comp.iloc[:,0].min())
-    sy = 1/(comp.iloc[:,1].max()-comp.iloc[:,0].min())
+#     comp = pc.loc[b].iloc[:,[0,1]]
+#     loadings = load.loc[b].iloc[[0,1],:]
+#     sx = 1/(comp.iloc[:,0].max()-comp.iloc[:,0].min())
+#     sy = 1/(comp.iloc[:,1].max()-comp.iloc[:,0].min())
     
     
-    mask = (matrix[matrix.basin==b].max_ros_area>0.1)
-    mask = (matrix[matrix.basin==b].delta_sca<0) & mask
-    mask = mask.reindex(comp.index)
-    for j in range(len(loadings.columns)):
-        # ax[i].annotate("",xy=(0,0),
-        #                 xytext=(loadings.iloc[0,j]*.9,
-        #                         loadings.iloc[1,j]*.9),
-        #                 arrowprops=dict(headwidth=0, width=0.05,
-        #                                 color=colors[j]))
-        ax[i].annotate("",xy=(0,0),xytext=(loadings.iloc[0,j],
-                                           loadings.iloc[1,j]),
-                       arrowprops=dict(arrowstyle="<-",
-                                       color=colors[j],
-                                       linewidth=2,
-                                       mutation_scale=9))
+#     mask = (matrix[matrix.basin==b].max_ros_area>0.1)
+#     mask = (matrix[matrix.basin==b].delta_sca<0) & mask
+#     mask = mask.reindex(comp.index)
+#     for j in range(len(loadings.columns)):
+#         # ax[i].annotate("",xy=(0,0),
+#         #                 xytext=(loadings.iloc[0,j]*.9,
+#         #                         loadings.iloc[1,j]*.9),
+#         #                 arrowprops=dict(headwidth=0, width=0.05,
+#         #                                 color=colors[j]))
+#         ax[i].annotate("",xy=(0,0),xytext=(loadings.iloc[0,j],
+#                                            loadings.iloc[1,j]),
+#                        arrowprops=dict(arrowstyle="<-",
+#                                        color=colors[j],
+#                                        linewidth=2,
+#                                        mutation_scale=9))
     
-    ax[i].scatter(comp[~mask].iloc[:,0]*sx,comp[~mask].iloc[:,1]*sy,
-                  s=5,
-                  alpha=0.5, color='grey')
-    ax[i].scatter(comp[mask].iloc[:,0]*sx,comp[mask].iloc[:,1]*sy,
-                   s=5, c = 'darkred')
-                  # s=20, c = matrix.loc[mask[mask].index].max_ros_area)
-    # ax[i].scatter(comp[mask.values].iloc[:,0]*sx,comp[mask.values].iloc[:,1]*sy,
-    #               s=8, alpha=0.5, color='tab:blue')
+#     ax[i].scatter(comp[~mask].iloc[:,0]*sx,comp[~mask].iloc[:,1]*sy,
+#                   s=5,
+#                   alpha=0.5, color='grey')
+#     ax[i].scatter(comp[mask].iloc[:,0]*sx,comp[mask].iloc[:,1]*sy,
+#                    s=5, c = 'darkred')
+#                   # s=20, c = matrix.loc[mask[mask].index].max_ros_area)
+#     # ax[i].scatter(comp[mask.values].iloc[:,0]*sx,comp[mask.values].iloc[:,1]*sy,
+#     #               s=8, alpha=0.5, color='tab:blue')
     
 
-    yabs_max = abs(max(ax[i].get_ylim(), key=abs))
-    xabs_max = abs(max(ax[i].get_xlim(), key=abs))
+#     yabs_max = abs(max(ax[i].get_ylim(), key=abs))
+#     xabs_max = abs(max(ax[i].get_xlim(), key=abs))
     
-    xmin = min([loadings.T.min().values[0]*1.5, comp.iloc[:,0].min()*sx*1.5])
-    xmax = max([loadings.T.max().values[0]*1.1, comp.iloc[:,0].max()*sx*1.1])
+#     xmin = min([loadings.T.min().values[0]*1.5, comp.iloc[:,0].min()*sx*1.5])
+#     xmax = max([loadings.T.max().values[0]*1.1, comp.iloc[:,0].max()*sx*1.1])
     
     
-    ymin = min([loadings.T.min().values[1]*1.1, comp.iloc[:,1].min()*sy*1.1])
-    ymax = max([loadings.T.max().values[1]*1.1, comp.iloc[:,1].max()*sy*1.1])
+#     ymin = min([loadings.T.min().values[1]*1.1, comp.iloc[:,1].min()*sy*1.1])
+#     ymax = max([loadings.T.max().values[1]*1.1, comp.iloc[:,1].max()*sy*1.1])
     
-    ax[i].set_ylim(ymin=ymin,
-                   ymax=ymax)
-    ax[i].set_xlim(xmin=xmin,
-                   xmax=xmax)
-    ax[i].set_title(titles[i],loc='left')
+#     ax[i].set_ylim(ymin=ymin,
+#                    ymax=ymax)
+#     ax[i].set_xlim(xmin=xmin,
+#                    xmax=xmax)
+#     ax[i].set_title(titles[i],loc='left')
     
-    ax[i].axvline(0,ls=":", color='grey')
-    ax[i].axhline(0,ls=":",color='grey')
-    # ax[i].set_xticks([0])
-    # ax[i].set_yticks([0])
-    # ax[i].grid(True, ls=":")
-    # ax[i].set_xlim(-0.8,0.8)
-    # ax[i].set_ylim(-0.8,0.8)
+#     ax[i].axvline(0,ls=":", color='grey')
+#     ax[i].axhline(0,ls=":",color='grey')
+#     # ax[i].set_xticks([0])
+#     # ax[i].set_yticks([0])
+#     # ax[i].grid(True, ls=":")
+#     # ax[i].set_xlim(-0.8,0.8)
+#     # ax[i].set_ylim(-0.8,0.8)
 
-for j in range(len(names)):
-    ax[0].plot([],[], color=colors[j], label=names[j])
-ax[0].legend(frameon=False, loc=(0,-2.5), ncol=3)
+# for j in range(len(names)):
+#     ax[0].plot([],[], color=colors[j], label=names[j])
+# ax[0].legend(frameon=False, loc=(0,-2.5), ncol=3)
     
 
 # #plt.savefig('plots/BIPLOTS_PC1PC2.pdf',dpi=150,bbox_inches='tight')
@@ -549,11 +549,26 @@ legend2 = ax[3].legend(handles, labels, loc=(1.8,-1),
 
 #%%
 
-ros_areas = (data_daily.ros_area>0.1).droplevel(2).unstack().T
-# ros_areas = (ros_areas) & (data_daily.SCA_trend<0).droplevel(2).unstack().T
+colors = mpl.cm.nipy_spectral(np.linspace(0,.9,len(names)))
 
+# colors = mpl.colors.BASE_COLORS.values()
+colors = list(colors)
+
+
+titles = [re.findall('[A-Z][^A-Z]*', b)[1] for b in basins]
+titles[-1] = 'Ñuble'
+ros_areas = ((data_daily.ros_area>0.1)).droplevel(2).unstack().T[basins]
+# ros_areas = (ros_areas) & (data_daily.SCA_trmean_neventsend<0).droplevel(2).unstack().T
+
+ycum = ros_areas.groupby(ros_areas.index.year).sum()[basins]
+
+
+mean_nevents = (data_events[data_events.max_ros_area>0.1].start.unstack().T.count()/14).round(1)
+mean_meltevents = (data_events[(data_events.max_ros_area>0.1)&(data_events.delta_sca<0)].start.unstack().T.count()/14).round(1)
 ac = ros_areas.groupby([ros_areas.index.month,ros_areas.index.year]).sum()
+ac_std = ac.std(level=0)[basins]
 ac = ac.mean(level=0)
+
 
 fig,ax = plt.subplots(2,4,sharex=True,sharey=True,figsize=(14,5))
 
@@ -562,7 +577,15 @@ ax = ax.ravel()
 colors=mpl.cm.nipy_spectral(np.linspace(0.1,0.9,len(ac.columns)))
 for i,b in enumerate(ac.columns):
     ax[i].bar(np.arange(12),ac[b],edgecolor='k',
-              color=colors[i], label=titles[i])
+              color=colors[i], label=titles[i],
+              yerr = 1.96*ac_std[b]/np.sqrt(14),
+              capsize=2)
+    ax[i].set_ylim(0,10)
+    ax[i].text(0,0.7,'E: '+str(mean_nevents[b])+'$yr^{-1}$',
+               transform=ax[i].transAxes,fontsize=12)
+
+    ax[i].text(0,0.6,'ME: '+str(mean_meltevents[b])+'$yr^{-1}$',
+               transform=ax[i].transAxes,fontsize=12)
     # ax[i].set_title(titles[i],loc='left')
     ax[i].legend(frameon=False, fontsize=12,loc='upper left')
     ax[i].set_xticks(np.arange(12))
@@ -571,14 +594,17 @@ for i,b in enumerate(ac.columns):
                            'NOV','DIC'],fontsize=13)
     ax[i].tick_params(axis='x',rotation=45)
     
-fig.text(0.08,0.5,'Mean anual cycle of ROS days', rotation=90, ha='center',va='center')
     
-# #plt.savefig('plots/ros_anualcycle.pdf',dpi=150,bbox_inches='tight')
+    
+fig.text(0.26,.95,'Mean anual cycle of ROS days', rotation=0, ha='center',va='center',
+         )
+
+fig.text(0.08,0.5,'Mean N°Events\nper month',rotation=90,ha='center',va='center')    
+plt.savefig('plots/ros_anualcycle.pdf',dpi=150,bbox_inches='tight')
 
 
 #%%
 
-ycum = ros_areas.groupby(ros_areas.index.year).sum()
 fig,ax = plt.subplots(2,4,sharex=True,sharey=True,figsize=(14,5))
 ax = ax.ravel()
 for i,b in enumerate(ac.columns):
@@ -597,7 +623,7 @@ fig.text(0.08,0.5,'#ROS days per year', rotation=90, ha='center',va='center')
 
 #%%
 dd = data_daily.loc['RioMaipoEnElManzano'].droplevel(1)
-ros_days = dd.ros_area > 0.1
+ros_days = (dd.ros_area > 0.1)
 ros_days = ros_days.groupby([ros_days.index.year,ros_days.index.month]).sum()
 ros_days = ros_days.unstack().T
 
@@ -607,12 +633,14 @@ plt.rc('font',size=18)
 fig,ax = plt.subplots(1,4,figsize=(18,3))
 ax[0].bar(np.arange(12),ros_days.mean(axis=1),yerr=1.96*ros_days.std(axis=1)/np.sqrt(14),
           capsize=3, edgecolor='k')
-ax[0].set_ylim(0,3.5)
-ax[0].text(0,1.06,"Mean #Events: "+"{:.01f}".format(de[de.max_ros_area>0.1].start.count()/14),
+ax[0].set_ylim(0,3.1)
+ax[0].text(0,1.35,"N°Events: "+"{:.01f}".format(de[de.max_ros_area>0.1].start.count()/14)+'$yr^{-1}$',
+           transform=ax[0].transAxes)
+ax[0].text(0,1.2,"N°Melt Events: "+"{:.01f}".format(de[(de.max_ros_area>0.1)&(de.delta_sca<0)].start.count()/14)+'$yr^{-1}$',
            transform=ax[0].transAxes)
 ax[0].set_xticks(np.arange(12))
 ax[0].set_xticklabels(['J','F','M','A','M','J','J','A','S','O','N','D'])
-ax[0].set_ylabel('Mean #ROS days')
+ax[0].set_ylabel('Mean N°Days\nper month')
 
 ax[1].boxplot(de[(de.return_period>100)].Qmaxd, positions=[0],patch_artist=True,
               boxprops=dict(facecolor='tab:blue'),medianprops=dict(color='k'))
@@ -659,25 +687,42 @@ ax[3].text(0.9,1.05,'(d)',transform=ax[3].transAxes)
 # ax[3].boxplot(dd.pr_max[dd.pr_cr2met>3].dropna(),positions=[1])
 # ax[3].boxplot(dd.pr_max[dd.pr_cr2met>3].dropna(),positions=[1.25])
 
-#plt.savefig('plots/maipomanzano/ROS_FINAL.pdf',dpi=150,bbox_inches='tight')
+plt.savefig('plots/maipomanzano/ROS_FINAL.pdf',dpi=150,bbox_inches='tight')
 #%%
+# data_events = data_events[data_events.duration<24*10]
+de = [data_events.loc[b] for b in basins]
+
+mask = (data_events.delta_sca<0) & (data_events.max_ros_area>0.1) & (data_events.duration<24*6)
+de = [d[(d.max_ros_area>0.1) & (d.delta_sca<0) & (d.duration<24*6)] for d in de]
+
+de_q = [d.groupby([d.index,d.start.map(lambda x: x.year)]).mean().Qmaxd for d in de]
+de_q = [d.unstack().max(axis=0).mean() for d in de_q]
+
+
+de_sca = [d.groupby([d.index,d.start.map(lambda x: x.year)]).mean().delta_sca for d in de]
+de_sca = [-1*d.unstack().min(axis=0).mean() for d in de_sca]
+
+
 
 polygons.index = basins
 polygons['mean_ros_days'] = ycum.mean()
 polygons['mean_rain_days'] = [(data_daily.pr_cr2met>3).loc[b].groupby(data_daily.loc[b].index.get_level_values(0).year).sum().mean() for b in basins]
-polygons['ros_rain_ratio'] = polygons['mean_ros_days']/polygons['mean_rain_days']
-polygons['max_runoff_ros_day'] = data_events[(data_events.delta_sca<0) & (data_events.max_ros_area>0.1)].Qmaxd.unstack().T.max()
-polygons['mean_runoff_ros_day'] = data_events[(data_events.delta_sca<0) & (data_events.max_ros_area>0.1)].Qmaxd.unstack().T.median()
-polygons['extreme_runoff'] = [np.percentile(data_events.Qmaxd[b],90) for b in basins]
-polygons['qros_over_qextreme'] = polygons['mean_runoff_ros_day']/polygons['extreme_runoff']
+polygons['ros_rain_ratio'] = 100*polygons['mean_ros_days']/polygons['mean_rain_days']
+# polygons['max_runoff_ros_day'] = data_events[(data_events.delta_sca<0) & (data_events.max_ros_area>0.1)].Qmaxd.unstack().T.max()
+polygons['max_runoff_ros_day'] = de_q
+polygons['mean_runoff_ros_day'] = data_events[mask].Qmaxd.unstack().T.mean()
 
-polygons['max_deltasca_ros_day'] = -100*data_events[(data_events.delta_sca<0) & (data_events.max_ros_area>0.1)].delta_sca.unstack().T.min()
-polygons['mean_deltasca_ros_day'] = -100*data_events[(data_events.delta_sca<0) & (data_events.max_ros_area>0.1)].delta_sca.unstack().T.mean()
+polygons['extreme_runoff'] = [np.percentile(data_events.Qmaxd[b],99) for b in basins]
+polygons['qros_over_qextreme'] = 100*polygons['mean_runoff_ros_day']/polygons['extreme_runoff']
 
-polygons['p90'] = [np.percentile(data_events[data_events.pr_cum>1].pr_cum[b],90) for b in basins]
-polygons['pmean_ROS'] = [data_events[data_events.max_ros_area>0.1].pr_cum[b].median() for b in basins]
+# polygons['max_deltasca_ros_day'] = -data_events[(data_events.delta_sca<0) & (data_events.max_ros_area>0.1)].delta_sca.unstack().T.min()
+polygons['max_deltasca_ros_day'] = 100*np.array(de_sca)
+polygons['mean_deltasca_ros_day'] = data_events[mask].delta_sca.unstack().T.mean()*(-100)
 
-polygons['prros_over_prextreme'] = polygons['pmean_ROS']/polygons['p90']
+polygons['p90'] = [np.percentile(data_events[data_events.pr_cum>3].pr_cum[b],99) for b in basins]
+polygons['pmean_ROS'] = [data_events[mask].pr_cum[b].mean() for b in basins]
+
+polygons['prros_over_prextreme'] = 100*polygons['pmean_ROS']/polygons['p90']
 
 #%%
 import cartopy.feature as cf
@@ -688,10 +733,11 @@ fig,ax = plt.subplots(1,7,sharex=True,sharey=True,figsize=(14,10),
                       subplot_kw={'projection':ccrs.PlateCarree()})
 
 titles=['Mean ROS\ndays per\nyear','ROS/Rain\ndays\nratio',
-        'Median runoff\non ROS days\nover extreme\nrunoff (Q90)','Maximum\nrunoff on\nROS days',
+        'Mean runoff\non ROS days\nover extreme\nrunoff (Q99)',
+        'Maximum\nrunoff on\nROS days',
         'Mean SCA\nloss on\nROS days',
         'Maximum SCA\nloss on\nROS days',
-        'Median\nprecipitation\non ROS days\nover extreme\nprecipitation\n(P90)'
+        'Mean\nprecipitation\non ROS days\nover extreme\nprecipitation\n(P99)'
         ]
 cax = []
 for axis,c in zip(ax,range(len(titles))):
@@ -724,19 +770,19 @@ polygons.plot(ax=ax[1],column='ros_rain_ratio',cmap='BuPu',
               legend=True,
               cax=cax[1],
               legend_kwds={'orientation': "horizontal",
-                           'ticks':[0.2,0.3,0.4],
-                           'label':'(-)'})
+                           'ticks':[20,30,40],
+                           'label':'(%)'})
 polygons.plot(ax=ax[2],column='qros_over_qextreme',cmap=cm.cm.matter,
               legend=True,
-              cax=cax[2],vmax=1,
+              cax=cax[2],vmax=80,
               legend_kwds={'orientation': "horizontal",
-                           'ticks':[0.5,1],
-                           'label':'(-)'})
+                           'ticks':[40,80],
+                           'label':'(%)'})
 polygons.plot(ax=ax[3],column='max_runoff_ros_day', cmap=cm.cm.turbid,
-              legend=True,vmax=1.5e3,
+              legend=True,vmax=300,
               cax=cax[3],
               legend_kwds={'orientation': "horizontal",
-                           'ticks':[500,1200],
+                           'ticks':[100,250],
                            'label':r'$(m3/s)$'})
 polygons.plot(ax=ax[4],column='mean_deltasca_ros_day', cmap='Blues_r',
               legend=True,
@@ -748,14 +794,15 @@ polygons.plot(ax=ax[5],column='max_deltasca_ros_day', cmap=cm.cm.ice,
               cax=cax[5],
               legend_kwds={'orientation': "horizontal",
                            'label':'(%)'})
-polygons.plot(ax=ax[6],column='prros_over_prextreme', cmap=cm.cm.dense_r,
+polygons.plot(ax=ax[6],column='prros_over_prextreme', cmap=cm.cm.haline,
               legend=True,
-              cax=cax[6],
+              cax=cax[6],vmax=15,
               legend_kwds={'orientation': "horizontal",
+                           # 'ticks':[1,10],
                            'label':'(%)'})
 
 ax[0].set_yticks(np.arange(-33,-38,-1))
 ax[0].set_yticklabels(["33°S","34°S","35°S","36°S","37°S"])
 ax[0].tick_params(axis="y",labelsize=14)
 
-#plt.savefig('plots/ROS_STATS_final_basins.pdf',dpi=150,bbox_inches='tight')
+plt.savefig('plots/ROS_STATS_final_basins.pdf',dpi=150,bbox_inches='tight')

@@ -49,8 +49,7 @@ basin_attributes.index = basin_attributes.gauge_name
 # PRECIPITATION ON BASIN OUTLETS
 # =============================================================================
 
-basins = ['RioMapochoEnLosAlmendros', 'Rio Teno Despues De Junta Con Claro',
-          'Rio Uble En San Fabian N 2']
+basins = ['RioMapochoEnLosAlmendros']
 
 # pr_mm = pd.read_csv('datos/estaciones/pr_RioMaipoEnElManzano_2013-08.csv')
 # pr_mm.index = pd.to_datetime(pr_mm['Fecha'])
@@ -85,14 +84,14 @@ del datos_dgf
 pr = []
 station_height = []
 for basin in basins:
-    pp = pd.read_csv('datos/estaciones/pr_' +
-                     basin.replace(" ", "")+'_2008-05-01_2008-06-26.csv', index_col=0)
-    pp.index = pd.to_datetime(pp['Fecha'])
-    station_height.append(pp.Altura.iloc[0])
+    pp = pd.read_csv('datos/estaciones/vismet/pr_' +
+                     basin.replace(" ", "")+'.csv', index_col=0)
+    pp.index = pd.to_datetime(pp.index)
+    # station_height.append(pp.Altura.iloc[0])
     pp = pp['Valor'].drop_duplicates()
     pr.append(pp)
     
-station_height = pd.Series(station_height,index = basins)
+# station_height = pd.Series(station_height,index = basins)
 
 pr = pd.concat(pr, axis=1).reindex(date_interval)
 pr.columns = basins
@@ -109,8 +108,7 @@ pr_sanjose = pr_sanjose.resample('h').fillna(method='ffill')
 # =============================================================================
 # hypsometric curves
 # =============================================================================
-basins = ['Rio Maipo En El Manzano', 'Rio Teno Despues De Junta Con Claro',
-          'Rio Uble En San Fabian N 2']
+basins = ['Rio Maipo En El Manzano']
 pr.columns = basins
 pr['Rio Maipo En El Manzano'] = pr_dgf[interval]
 
@@ -349,7 +347,7 @@ plt.rc("font", size=18)
 fig, ax = plt.subplots(2, 1, figsize=(12, 4), sharex=True,
                        gridspec_kw={'height_ratios': [1, 2]})
 
-basin = 'Rio Uble En San Fabian N 2'
+basin = 'Rio Maipo En El Manzano'
 props = dict(facecolor='white', lw=1, alpha=1,zorder=1)
 names = ['$Q_{max}$: ', '$PR_{max}$: ', '$PR_{cum}$: ','RainStart: ',
          '$RainDuration$: ', r'$\tau_{peak}$: ',r'$A_{p}$: ']
@@ -357,10 +355,10 @@ units = ['$m^3/s$', '$mm/h$', '$mm$', "", "", "",r"$ km^2$"]
 
 ax[0].bar(pr.index,
           pr[basin], width=pd.Timedelta(hours=1), color='cadetblue',
-          align='edge', label='Rio Ñuble En\nSan Fabian\n450(m)',zorder=3)
-# ax[0].bar(pr_sanjose.index+datetime.timedelta(hours=1),
-#           pr_sanjose/24,width=pd.Timedelta(hours=1),
-#           color='cadetblue', alpha=0.33, label='San Jose De Maipo\n943(m)')
+          align='edge', label='DGF Roof\n527(m)',zorder=3)
+ax[0].bar(pr_sanjose.index+datetime.timedelta(hours=1),
+          pr_sanjose/24,width=pd.Timedelta(hours=1),
+          color='cadetblue', alpha=0.33, label='San Jose De Maipo\n943(m)')
 ax[0].grid(True, which='both', ls=":")
 ax[0].set_yticks([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
 # ax[0].set_yticklabels(ax[0].get_yticks()[::2])
@@ -459,8 +457,8 @@ for axis in [ax[1]]:
 box = ax[1].get_position()
 fig.text(box.xmin, box.ymin*-1.15, '2008-May', ha='center', va='center')
 fig.text(box.xmin*4.35, box.ymin*-1.15, '2008-Jun', ha='center', va='center')
-plt.savefig('plots/caseofstudy_Jun2008/flood_study_'+basin.replace(" ", "")+'.pdf',
-            dpi=150, bbox_inches='tight')
+#plt.savefig('plots/caseofstudy_Jun2008/flood_study_'+basin.replace(" ", "")+'.pdf',
+            # dpi=150, bbox_inches='tight')
 
 # %%
 plt.rc("font", size=18)
@@ -566,7 +564,7 @@ box = ax[1, 0].get_position()
 fig.text(box.xmin*1.15, box.ymin*-1.15,
          '\nMay\n2008', ha='center', va='center')
 
-# plt.savefig('plots/caseofstudy_Aug2013/flood_study_stodomingo.pdf',
+# #plt.savefig('plots/caseofstudy_Aug2013/flood_study_stodomingo.pdf',
 #             dpi=150, bbox_inches='tight')
 # ax[1, 1].plot(pr.index, (q1-baseflow1)[interval2], color='darkblue')
 # ax[1, 2].plot(pr.index, (q2-baseflow2)[interval2], color='darkblue')
@@ -784,5 +782,5 @@ fig.text(box.xmin*1.15, box.ymin*-1.15,
 # # ax[0].text(0.886, 1.2, textstr2, transform=ax[0].transAxes, fontsize=12,
 # #            verticalalignment='top', bbox=props)
 
-# # plt.savefig('plots/caseofstudy_Aug2013/flood_study.pdf', dpi=150,
+# # #plt.savefig('plots/caseofstudy_Aug2013/flood_study.pdf', dpi=150,
 # #             bbox_inches='tight')

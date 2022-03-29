@@ -35,11 +35,11 @@ import cartopy.feature as cf
 # =============================================================================
 # big time interval and graph time interval
 # =============================================================================
-date = "2008-06-04"
+date = "2013-08-11"
 # date = "%YR%"
 yr, month, day = [int(n) for n in date.split("-")]
 interval = slice(datetime.datetime(yr, month, day)-datetime.timedelta(days=9),
-                 datetime.datetime(yr, month, day)+datetime.timedelta(days=3))
+                 datetime.datetime(yr, month, day)+datetime.timedelta(days=9))
 
 # %%
 # =============================================================================
@@ -51,7 +51,7 @@ basin_attributes = basin_attributes.sort_values(
     by='gauge_name', ascending=True)
 runoff = pd.read_csv('datos/runoff_gauges_dataset.csv', index_col=0)
 runoff.index = pd.to_datetime(runoff.index)
-runoff2 = runoff[basin_attributes.gauge_name]
+runoff2 = runoff[basin_attributes.gauge_name.drop(7321002)]
 runoff = runoff[interval]
 # runoff = runoff
 
@@ -71,7 +71,9 @@ pr = pd.read_csv('datos/pr_cr2met_mainbasins.csv', index_col=0)
 pr.index = pd.to_datetime(pr.index)
 pr = pr[interval]
 pr.columns = [int(p) for p in pr.columns]
-pr = pr[basin_attributes.index]
+pr = pr[basin_attributes.drop(7321002).index]
+
+pr[7321002] = pr[7317005]
 
 paths = glob('datos/topography/basins/hypso/*.csv')
 hypso = [pd.read_csv(p, index_col=0) for p in paths]
@@ -104,10 +106,10 @@ max_pluv_area = pluv_area.where(pr > 0.1).max()
 paths = glob('datos/vector/basins/*.shp')
 polygons = pd.concat([gpd.read_file(p) for p in paths])
 polygons.index = polygons.gauge_id
-polygons = polygons.loc[basin_attributes.index]
+# polygons = polygons.loc[basin_attributes.index]
 polygons.gauge_name = basin_attributes.gauge_name
 
-polygons['max_pluv_area'] = (max_pluv_area/areas).values
+polygons['max_pluv_area'] = (max_pluv_area.loc[polygons.index]/areas.loc[polygons.index]).values
 
 
 # %%
@@ -122,6 +124,13 @@ ax.add_feature(cf.LAND, rasterized=True)
 
 polygons.index = polygons.gauge_name
 
+gauges = ['Rio Aconcagua En Chacabuquito',
+          'Rio Maipo En El Manzano',
+          'Rio Teno Despues De Junta Con Claro',
+          'Rio Lircay En Puente Las Rastras',
+          'Rio Melado En El Salto',
+          'Rio Uble En San Fabian N 2']
+polygons = polygons.loc[gauges]
 n = 0.25
 polygons.plot(column='max_pluv_area',
               ax=ax,
@@ -136,12 +145,6 @@ polygons.plot(column='max_pluv_area',
 
 
 # polygons.plot(polygons.gauge_name, ax=ax,facecolor=None)
-gauges = ['Rio Aconcagua En Chacabuquito',
-          'Rio Maipo En El Manzano',
-          'Rio Teno Despues De Junta Con Claro',
-          'Rio Lircay En Puente Las Rastras',
-          'Rio Melado En El Salto',
-          'Rio Uble En San Fabian N 2']
 
 polygons.boundary.plot(ax=ax, lw=0.5, color='k', transform=ccrs.PlateCarree())
 
