@@ -67,6 +67,11 @@ ros = xr.open_dataset('datos/ROS/CORTES_CR2MET_ERA5/ROS_1984.nc')
 landcover = xr.open_dataset('datos/landcover/LC_CHILE_2014_b_final.nc').Band1
 landcover = landcover.sel(lon=slice(-74, -68), lat=slice(-39, -25))
 landcover = landcover[::50, ::50]
+
+#%%
+fig,ax = plt.subplots(1,1)
+hrestopo.sel(lon=slice(-70.8,-69.5),lat=slice(-37,-32.4)).plot(ax=ax);
+cuencas.plot(ax=ax)
 # landcover = landcover.reindex({'lat':ros.lat,'lon':ros.lon},method='nearest')
 # landcover = landcover.where(landcover!=0)
 # %%

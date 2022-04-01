@@ -129,15 +129,15 @@ timing = timing.where(mask.values.astype(bool))
 # compute mean rain on ROS days vs extreme rain (100yr pr)
 # =============================================================================
 ROS_rainratio = PR_CR2MET.where(ROS == True).where(
-    PR_CR2MET > 10).mean(dim='time')
+    PR_CR2MET > 3).mean(dim='time')
 ROS_rainratio = ROS_rainratio / \
-    PR_CR2MET.where(PR_CR2MET > 10).compute().quantile(0.99, dim='time')
+    PR_CR2MET.where(PR_CR2MET > 3).compute().quantile(0.99, dim='time')
 ROS_rainratio = ROS_rainratio.reindex({'lon': ROS.lon, 'lat': ROS.lat},
                                       method='nearest')
 ROS_rainratio = ROS_rainratio.compute()
 
 
-# # %%
+# %%
 # fig, ax = plt.subplots(1, 4, sharex=True, sharey=True,
 #                        subplot_kw={"projection": ccrs.PlateCarree()},
 #                        figsize=(18, 6))
@@ -282,8 +282,8 @@ mapa1 = ax[1].pcolormesh(LON, LAT, dswe_vs_pr.interpolate_na(dim='lon').where(ma
 mapa2 = ax[2].pcolormesh(LON, LAT, ROS_rainratio.where(mask),
                          rasterized=True,
                          transform=ccrs.PlateCarree(),
-                         cmap=cmocean.cm.rain,
-                         norm=mpl.colors.Normalize(0, 1))
+                         cmap=cmocean.cm.haline,
+                         norm=mpl.colors.Normalize(0, .2))
 
 mapa3 = ax[3].pcolormesh(LON, LAT,
                          trend.where(mask).where(trend != 0),
