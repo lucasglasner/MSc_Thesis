@@ -153,16 +153,21 @@ pluv_area = [int_func[i](H0_mm-300)*areas[i]
              for i in range(pr.shape[1])]
 nonpluv_area = [(1-int_func[i](H0_mm-300))*areas[i]
                 for i in range(pr.shape[1])]
-pluv_area = pd.DataFrame(pluv_area, columns=pr.index, index=pr.columns).T
-nonpluv_area = pd.DataFrame(nonpluv_area, columns=pr.index, index=pr.columns).T
-
-# area pluvial con era5
+pluv_area_mm = pd.DataFrame(pluv_area, columns=pr.index, index=pr.columns).T
+nonpluv_area_mm = pd.DataFrame(nonpluv_area, columns=pr.index, index=pr.columns).T
+#%%
 pluv_area_era5 = []
-for i in range(H0_m.shape[1]):
-    pluv_area_era5.append(int_func[i]((H0_m.iloc[:, i]-300))*areas[i])
-
-pluv_area_era5 = pd.DataFrame(
-    pluv_area_era5, index=pluv_area.columns, columns=pluv_area.index).T
+FL = []
+for b in basins:
+    path='datos/era5/horarias/H0_'+b.replace(" ","")+'_2000-2020.csv'
+    fl = pd.read_csv(path)
+    fl.index = pd.to_datetime(fl.time)
+    FL.append(fl.iloc[:,1])
+    
+FL = pd.concat(FL,axis=1)[interval]
+FL.columns = pr.columns
+pluv_area_era5 = [int_func[i](FL.iloc[:,i]-300)*areas[i] for i in range(pr.shape[1])]
+pluv_area_era5 = pd.DataFrame(pluv_area_era5, index=pr.columns, columns=pr.index).T
 nonpluv_area_era5 = areas-pluv_area_era5
 # pluv_area_era5.columns = pluv_area.columns
 # # %%
@@ -200,7 +205,8 @@ snow_area = pd.concat(snow_area, axis=1)
 # ROS = xr.open_dataset('datos/ROS/CORTES_CR2MET_ERA5/ROS_UBLE2013.nc')
 # ROS = ROS.ROS.sel(time=interval)
 
-ros_area = np.clip(snow_area-nonpluv_area, 0, 7e3)
+ros_area = np.clip(snow_area-nonpluv_area_era5, 0, 7e3)
+ros_area = ros_area.where(pr>3/24)
 # ros_area = ros_area.where(pr > 3/24).where(SCA.diff() <= 0)
 
 
@@ -229,51 +235,51 @@ quickflows = [runoff[c]-baseflows[c] for c in pr.columns]
 quickflows = pd.concat(quickflows, axis=1)
 quickflows = quickflows.where(quickflows > 0).fillna(0)
 
-# %%
-# =============================================================================
-# RASTER DATA, SWE, TOPOGRAPHY AND PLUVIAL AREA MASKS
-# =============================================================================
+# # %%
+# # =============================================================================
+# # RASTER DATA, SWE, TOPOGRAPHY AND PLUVIAL AREA MASKS
+# # =============================================================================
 
-SWE0 = xr.open_dataset(
-    'datos/ANDES_SWE_Cortes/maipomanzano/ANDES_SWE_WY2014.nc')
-SWE1 = xr.open_dataset('datos/ANDES_SWE_Cortes/ANDES_SWE_WY2014_Teno.nc')
-SWE2 = xr.open_dataset('datos/ANDES_SWE_Cortes/ANDES_SWE_WY2014_Uble.nc')
+# SWE0 = xr.open_dataset(
+#     'datos/ANDES_SWE_Cortes/maipomanzano/ANDES_SWE_WY2014.nc')
+# SWE1 = xr.open_dataset('datos/ANDES_SWE_Cortes/ANDES_SWE_WY2014_Teno.nc')
+# SWE2 = xr.open_dataset('datos/ANDES_SWE_Cortes/ANDES_SWE_WY2014_Uble.nc')
 
-SWE = [SWE0.SWE.sel(time="2013-08"),
-       SWE1.SWE.sel(time="2013-08"),
-       SWE2.SWE.sel(time="2013-08")]
+# SWE = [SWE0.SWE.sel(time="2013-08"),
+#        SWE1.SWE.sel(time="2013-08"),
+#        SWE2.SWE.sel(time="2013-08")]
 
-del SWE0, SWE1, SWE2
+# del SWE0, SWE1, SWE2
 
-dSWE = [swe.diff('time') for swe in SWE]
+# dSWE = [swe.diff('time') for swe in SWE]
 
-tot_pix = np.array([451481, 91890, 93014])
-SCA_cortes = [xr.where(swe > 50, 1, 0) for swe in SWE]
-SCA_cortes = [sca.sum(dim=['lat', 'lon']).to_series() for sca in SCA_cortes]
-SCA_cortes = pd.concat(SCA_cortes, axis=1)
-SCA_cortes.columns = SCA.columns
+# tot_pix = np.array([451481, 91890, 93014])
+# SCA_cortes = [xr.where(swe > 50, 1, 0) for swe in SWE]
+# SCA_cortes = [sca.sum(dim=['lat', 'lon']).to_series() for sca in SCA_cortes]
+# SCA_cortes = pd.concat(SCA_cortes, axis=1)
+# SCA_cortes.columns = SCA.columns
 
 
-# dem0 = xr.open_dataset('datos/topography/basins/RioMaipoEnElManzano.nc')
-# dem1 = xr.open_dataset(
-#     'datos/topography/basins/RioTenoDespuesDeJuntaConClaro.nc')
-# dem2 = xr.open_dataset('datos/topography/basins/RioUbleEnSanFabianN2.nc')
+# # dem0 = xr.open_dataset('datos/topography/basins/RioMaipoEnElManzano.nc')
+# # dem1 = xr.open_dataset(
+# #     'datos/topography/basins/RioTenoDespuesDeJuntaConClaro.nc')
+# # dem2 = xr.open_dataset('datos/topography/basins/RioUbleEnSanFabianN2.nc')
 
-# dem = [dem0.Band1, dem1.Band1, dem2.Band1]
-# del dem0, dem1, dem2
+# # dem = [dem0.Band1, dem1.Band1, dem2.Band1]
+# # del dem0, dem1, dem2
 
-# new_dem = []
-# for d, swe in zip(dem, SWE):
-#     nd = d.reindex({'lat': swe.lat, 'lon': swe.lon}, method='nearest')
-#     new_dem.append(nd)
-# del dem
-# dem = new_dem
+# # new_dem = []
+# # for d, swe in zip(dem, SWE):
+# #     nd = d.reindex({'lat': swe.lat, 'lon': swe.lon}, method='nearest')
+# #     new_dem.append(nd)
+# # del dem
+# # dem = new_dem
 
-melt = [dswe.where(dswe < 0).mean(dim=['lat', 'lon']).to_series()
-        for dswe in dSWE]
-melt = pd.concat(melt, axis=1)*-1
-melt.columns = pr.columns
-melt = melt.reindex(pr.index).interpolate(method='cubicspline')/24
+# melt = [dswe.where(dswe < 0).mean(dim=['lat', 'lon']).to_series()
+#         for dswe in dSWE]
+# melt = pd.concat(melt, axis=1)*-1
+# melt.columns = pr.columns
+# melt = melt.reindex(pr.index).interpolate(method='cubicspline')/24
 # %%
 # =============================================================================
 # compute flood stats
@@ -295,7 +301,7 @@ for inter,storm in zip([interval1,interval2],["storm1","storm2"]):
     stop_rain = pr[inter].apply(lambda x: x.where(x>3/24).dropna().index[-1])
     duration = stop_rain-start_rain
     tau = runoff[inter].idxmax()-start_rain
-    max_area = pluv_area[inter].where(pr[inter]>3/24).max().round(2)
+    max_area = pluv_area_era5[inter].where(pr[inter]>3/24).max().round(2)
     for b in basins:
         stats.loc[storm,b].qmax = qmax[b]
         stats.loc[storm,b].pr_max = pr_max[b]

@@ -208,7 +208,7 @@ for i,b in enumerate(basins):
     data_daily.append(d[interval])
 
 data_daily = pd.concat(data_daily,keys=basins)
-data_daily['ros_area'] = data_daily['ros_area'].where(data_daily['pr_cr2met']>3)
+data_daily['ros_area'] = data_daily['ros_area'].where(data_daily['pr_cr2met']>10)
 data_daily['ros_area'] = data_daily['ros_area'].where(data_daily['SL']<data_daily['FL'])
 
 data_daily['delta_ros'] = data_daily['FL']-data_daily['SL']
@@ -248,6 +248,19 @@ for i,b in enumerate(basins):
     #event last date
     data_events[i]['end'] = data_daily.loc[b].SCA.groupby(
         'events').apply(lambda x: x.index[-1][0])
+    data_events[i]['Qmaxd'] = data_daily.loc[b]['Qmaxd'].groupby(
+        'events').apply(lambda x: x.max())
+    #return period of the maxmimum runoff
+    data_events[i]['exc_prob'] = data_events[i]['Qmaxd'].apply(
+        lambda x: (st.percentileofscore(Qmaxd[b].dropna(),x)))
+    data_events[i]['return_period'] = 1/(1-data_events[i]['exc_prob']/100)
+    #direct runoff volume
+    data_events[i]['direct_runoff_volume'] = data_daily.loc[b].groupby(
+        'events').apply(lambda x: np.sum(x.quickflow*3600*24/1e6))
+    #aviable rain volume
+    data_events[i]['precipitated_volume'] = data_daily.loc[b].groupby(
+        'events').apply(lambda x: areas.loc[b]*np.sum(x['pr_cr2met']*x['pluv_area'])/1e3)
+    #soil moisture proxy
     #event duration in days
     data_events[i]['duration'] = data_events[i]['end']-data_events[i]['start']
     data_events[i]['duration'] = data_events[i].duration.apply(
@@ -269,24 +282,16 @@ for i,b in enumerate(basins):
     data_events[i]['mean_ros_area'] = data_daily.loc[b].ros_area.groupby(
         'events').apply(lambda x: x.mean())
     #maximum runoff in the event
-    data_events[i]['Qmaxd'] = data_daily.loc[b]['Qmaxd'].groupby(
-        'events').apply(lambda x: x.max())
-    #return period of the maxmimum runoff
-    data_events[i]['exc_prob'] = data_events[i]['Qmaxd'].apply(
-        lambda x: (st.percentileofscore(Qmaxd[b].dropna(),x)))
-    data_events[i]['return_period'] = 1/(1-data_events[i]['exc_prob']/100)
-    #direct runoff volume
-    data_events[i]['direct_runoff_volume'] = data_daily.loc[b].groupby(
-        'events').apply(lambda x: np.sum(x.quickflow*3600*24/1e6))
-    #aviable rain volume
-    data_events[i]['precipitated_volume'] = data_daily.loc[b].groupby(
-        'events').apply(lambda x: areas.loc[b]*np.sum(x['pr_cr2met']*x['pluv_area'])/1e3)
-    #soil moisture proxy
     data_events[i]['mean_pr30cum'] = data_daily.loc[b].pr_30cum.groupby(
         'events').apply(lambda x: x.mean())
     #freezing level
     data_events[i]['FL'] = data_daily.loc[b].FL.groupby(
         'events').apply(lambda x: x.mean())
+    x = data_daily.loc[b]
+    data_events[i]['SCA_trend_max'] = x.where(x.pr_cr2met>0).SCA_trend.groupby(
+        'events').apply(lambda x: x.max())
+    data_events[i]['SCA_trend_min'] = x.where(x.pr_cr2met>0).SCA_trend.groupby(
+        'events').apply(lambda x: x.min())
 
 data_events = pd.concat(data_events,keys=basins)
 data_events['basin'] = data_events.index.get_level_values(0)
@@ -296,13 +301,15 @@ data_events['delta_sca'] = data_events['end_sca']-data_events['start_sca']
 data_events = data_events.iloc[np.where(data_events.direct_runoff_volume>0)[0]]
 # data_events = data_events[data_events['pr_cum']>10]
 data_events = data_events.loc[basins]
+# mask=data_events.end-data_events.start<pd.Timedelta(days=7)
+# data_events = data_events[mask]
 # %%
 # =============================================================================
 # PCA
 # =============================================================================
 from scipy.cluster.vq import whiten
 from sklearn.preprocessing import StandardScaler
-from pca import pca
+# from pca import pca
 
 
 
@@ -503,9 +510,9 @@ from matplotlib.ticker import (MultipleLocator, FormatStrFormatter,
                                AutoMinorLocator, LogLocator, NullFormatter)
 ax = axis.ravel()
 v = data_events
-c = 'max_ros_area'
+c = 'SCA_trend_min'
 
-thresholds = [np.percentile(data_events.loc[b].direct_runoff_volume,99) for b in basins]
+thresholds = [np.percentile(data_events.loc[b].direct_runoff_volume,90) for b in basins]
 
 
 sizes=v['mean_pr30cum']
@@ -524,7 +531,7 @@ for i,b in enumerate(basins):
     ax[i].yaxis.set_minor_formatter(NullFormatter())
     ax[i].xaxis.set_minor_locator(minor)
     ax[i].xaxis.set_minor_formatter(NullFormatter())
-    ax[i].axhline(thresholds[i],zorder=0,color='k',ls=":")
+    # ax[i].axhline(thresholds[i],zorder=0,color='k',ls=":")
 
     # ax[i].yaxis.set_minor_formatter(FormatStrFormatter("%.1f"))
 
@@ -540,7 +547,7 @@ for i,b in enumerate(basins):
     
     m = ax[i].scatter(v.loc[b][mask]['precipitated_volume'],
                       v.loc[b][mask]['direct_runoff_volume'],
-                      c=v.loc[b][mask][c],
+                      c=v.loc[b][mask][c]*100, vmin=-3, vmax=0,
                       ec='k', zorder=1,
                       s=sizes.loc[b][mask],
                       alpha=0.8,
@@ -548,29 +555,32 @@ for i,b in enumerate(basins):
     ax[i].plot([1e-2,1e4],[1e-2,1e4], color='r', ls="--")
 
 ax[-1].plot([],[],'r--',label="y~x")
-ax[-1].plot([],[],'k:',label="100yr\nFlood")
-ax[-1].legend(frameon=False,ncol=2,loc=(-0.15,-0.5))
+# ax[-1].plot([],[],'k:',label="Q90")
+ax[-1].legend(frameon=False,ncol=2,loc=(-0.4,-0.5))
 # ax[-1].axis('off')
 box = axis[0,-1].get_position()
 box1 = axis[-1,-1].get_position()
 cax = fig.add_axes([box.xmax*1.05,box1.ymin,0.02,box.ymax-box1.ymin])
 
-fig.colorbar(m,cax=cax, label='Maximum ROS Area (-)')
+fig.colorbar(m,cax=cax, label='$\Delta SCA$ (%)')
 
-fig.text(0.5,-0.05,r"Precipitated Volume $(hm^3)$"+"\n $\int PR \cdot A_p dt$", ha='center',va='center')
-fig.text(0,0.5,r"Direct Runoff Volume $(hm^3)$"+"\n $\int Q' dt$", ha='center',va='center',
+fig.text(0.5,-0.05,r"Precipitated Volume $(hm^3)$"+"\n $\int PR \cdot A_p dt$",
+         ha='center',va='center')
+fig.text(-0.01,0.5,r"Direct Runoff Volume $(hm^3)$"+"\n $\int Q' dt$", ha='center',
+         va='center',
          rotation='vertical')
 
 
 # produce a legend with a cross section of sizes from the scatter
 handles, labels = m.legend_elements(prop="sizes", alpha=0.5)
 legend2 = ax[3].legend(handles, labels, loc=(1.8,-1),
-                       title="30 days\nacumulated\nprecipitation\n(mm)",
-                       frameon=False)
+                        title="30 days\nacumulated\nprecipitation\n(mm)",
+                        frameon=False)
 
 plt.savefig('plots/QvsPRvolume_plots.pdf',dpi=150,bbox_inches='tight')
 
 #%%
+
 
 colors = mpl.cm.nipy_spectral(np.linspace(0,.9,len(names)))
 
@@ -586,10 +596,25 @@ ros_areas = ((data_daily.ros_area>0.1)).droplevel(2).unstack().T[basins]
 ycum = ros_areas.groupby(ros_areas.index.year).sum()[basins]
 
 
-mean_nevents = (data_events[data_events.max_ros_area>0.1].start.unstack().T.count()/(len(ycum))).round(0)
-mean_meltevents = (data_events[(data_events.max_ros_area>0.1)&(data_events.delta_sca<0)].start.unstack().T.count()/len(ycum)).round(0)
-mean_prevents = (data_events[data_events.pr_cum>3].start.unstack().T.count()/len(ycum)).round(0)
+# mean_nevents = (data_events[data_events.max_ros_area>0.1].start.unstack().T.count()/(len(ycum))).round(1)
+# mean_meltevents = (data_events[(data_events.max_ros_area>0.1)&(data_events.delta_sca<0)].start.unstack().T.count()/len(ycum)).round(1)
+# mean_prevents = (data_events[data_events.pr_cum>3].start.unstack().T.count()/len(ycum)).round(1)
 
+mean_nevents = ycum.mean().round(1)
+ic1 = 1.96*ycum.std()/np.sqrt(len(ycum))
+mean_prevents = data_daily.pr_cr2met[data_daily.pr_cr2met>10].unstack(2).T.count().unstack().T
+mean_prevents = mean_prevents.groupby(mean_prevents.index.year).sum()
+ic0 = 1.96*mean_prevents.std()/np.sqrt(len(mean_prevents))
+mean_prevents = mean_prevents.mean().round(1)
+
+# ic0 = 
+mean_meltevents = (data_daily[(data_daily.ros_area>0.1)&(data_daily.SCA_trend<0)].SCA_trend).unstack(2).T.count()
+mean_meltevents = mean_meltevents.unstack().T
+mean_meltevents = mean_meltevents.groupby(mean_meltevents.index.year).sum()
+ic2 = 1.96*mean_meltevents.std()/np.sqrt(len(mean_meltevents))
+mean_meltevents = mean_meltevents.mean().round(1)
+# mean_meltevents
+# ci_nevents = 
 
 ac = ros_areas.groupby([ros_areas.index.month,ros_areas.index.year]).sum()
 ac_std = ac.std(level=0)[basins]
@@ -597,7 +622,7 @@ ac = ac.mean(level=0)
 
 
 fig,ax = plt.subplots(2,4,sharex=True,sharey=True,figsize=(14,5))
-
+fig.tight_layout(pad=1.5)
 ax = ax.ravel()
 
 colors=mpl.cm.nipy_spectral(np.linspace(0.1,0.9,len(ac.columns)))
@@ -607,12 +632,13 @@ for i,b in enumerate(ac.columns):
               yerr = 1.96*ac_std[b]/np.sqrt(14),
               capsize=2)
     ax[i].set_ylim(0,10)
-    ax[i].text(0.01,0.7,'RE: '+str(int(mean_prevents[b]))+' $yr^{-1}$',
+    ax[i].text(0.01,1.25,
+               'RD: '+str(float(mean_prevents[b]))+"$\pm$ {:.1f}".format(ic0.loc[b])+" $yr^{-1}$",
                transform=ax[i].transAxes,fontsize=12)
-    ax[i].text(0.01,0.6,'E: '+str(int(mean_nevents[b]))+' $yr^{-1}$',
+    ax[i].text(0.01,1.15,'D: '+str(float(mean_nevents[b]))+"$\pm$ {:.1f}".format(ic1.loc[b])+' $yr^{-1}$',
                transform=ax[i].transAxes,fontsize=12)
 
-    ax[i].text(0.01,0.5,'ME: '+str(int(mean_meltevents[b]))+' $yr^{-1}$',
+    ax[i].text(0.01,1.05,'MD: '+str(float(mean_meltevents[b]))+"$\pm$ {:.1f}".format(ic2.loc[b])+' $yr^{-1}$',
                transform=ax[i].transAxes,fontsize=12)
     
 
@@ -626,10 +652,10 @@ for i,b in enumerate(ac.columns):
     
     
     
-fig.text(0.26,.95,'Mean anual cycle of ROS days', rotation=0, ha='center',va='center',
+fig.text(0.205,1.08,'Mean anual cycle of ROS days', rotation=0, ha='center',va='center',
          )
 
-fig.text(0.08,0.5,'Mean N°Days\nper month',rotation=90,ha='center',va='center')    
+fig.text(0.02,0.5,'Mean N°Days\nper month',rotation=90,ha='center',va='center')    
 plt.savefig('plots/ros_anualcycle.pdf',dpi=150,bbox_inches='tight')
 
 
@@ -707,7 +733,7 @@ ax = ax.ravel()
 slopes = []
 for i,b in enumerate(ac.columns):
     m = st.linregress(ycum[b].index,ycum[b])
-    slopes.append(m.slope)
+    slopes.append(m)
     ax[i].plot(ycum[b].index,ycum[b].index*m.slope+m.intercept,
                color='k', ls="--")
     ax[i].plot(ycum[b].index,ycum[b], color=colors[i], label=titles[i])
@@ -719,7 +745,7 @@ for i,b in enumerate(ac.columns):
                transform=ax[i].transAxes,
                fontsize=14)
 fig.text(0.08,0.5,'N°ROS days per year', rotation=90, ha='center',va='center')
-plt.savefig('plots/ROS_days_per_year.pdf',dpi=150,bbox_inches='tight')
+# plt.savefig('plots/ROS_days_per_year.pdf',dpi=150,bbox_inches='tight')
 
 #%%
 dd = data_daily.loc['RioMaipoEnElManzano'].droplevel(1)
@@ -790,62 +816,56 @@ ax[3].text(0.9,1.05,'(d)',transform=ax[3].transAxes)
 # ax[3].boxplot(dd.pr_max[dd.pr_cr2met>3].dropna(),positions=[1])
 # ax[3].boxplot(dd.pr_max[dd.pr_cr2met>3].dropna(),positions=[1.25])
 
-plt.savefig('plots/maipomanzano/ROS_FINAL.pdf',dpi=150,bbox_inches='tight')
+# plt.savefig('plots/maipomanzano/ROS_FINAL.pdf',dpi=150,bbox_inches='tight')
 
 
 #%%
-# data_events = data_events[data_events.duration<24*10]
-de = [data_events.loc[b] for b in basins]
 
-mask = (data_events.delta_sca<0) & (data_events.max_ros_area>0.1)
-de = [d[(d.max_ros_area>0.1) & (d.delta_sca<0)] for d in de]
-
-de_q = [d.groupby([d.index,d.start.map(lambda x: x.year)]).mean().Qmaxd for d in de]
-de_q = [d.unstack().max(axis=0).mean() for d in de_q]
-
-
-de_sca = [d.groupby([d.index,d.start.map(lambda x: x.year)]).mean().delta_sca for d in de]
-de_sca = [-1*d.unstack().min(axis=0).mean() for d in de_sca]
-
-
-
+# data_events[]
 polygons.index = basins
-polygons['mean_ros_days'] = ycum.mean()
-polygons['mean_rain_days'] = [(data_daily.pr_cr2met>3).loc[b].groupby(data_daily.loc[b].index.get_level_values(0).year).sum().mean() for b in basins]
-polygons['ros_rain_ratio'] = 100*polygons['mean_ros_days']/polygons['mean_rain_days']
-# polygons['max_runoff_ros_day'] = data_events[(data_events.delta_sca<0) & (data_events.max_ros_area>0.1)].Qmaxd.unstack().T.max()
-polygons['max_runoff_ros_day'] = de_q
-polygons['mean_runoff_ros_day'] = data_events[mask].Qmaxd.unstack().T.mean()
+polygons['mean_ros_days'] = mean_nevents
+polygons['mean_mros_days'] = mean_meltevents
+polygons['mean_rain_days'] = mean_prevents
 
-polygons['extreme_runoff'] = [np.percentile(data_events.Qmaxd[b],99) for b in basins]
-polygons['qros_over_qextreme'] = 100*polygons['mean_runoff_ros_day']/polygons['extreme_runoff']
+polygons['ros_rain_ratio'] = mean_nevents/mean_prevents*100
+polygons['mros_rain_ratio'] = mean_meltevents/mean_prevents*100
+polygons['trends'] = np.array([s.slope for s in slopes])
+polygons['pvalues'] = np.array([s.pvalue for s in slopes])
 
-# polygons['max_deltasca_ros_day'] = -data_events[(data_events.delta_sca<0) & (data_events.max_ros_area>0.1)].delta_sca.unstack().T.min()
-polygons['max_deltasca_ros_day'] = 100*np.array(de_sca)
-polygons['mean_deltasca_ros_day'] = data_events[mask].delta_sca.unstack().T.median()*(-100)
+#compute ros influence on extreme runoff
+x,y,z=[],[],[]
+for b in basins:
+    de = data_events.loc[b].sort_values(by='direct_runoff_volume').tail(100)
+    de = de[de.pr_cum>10]
+    
+    dd = data_daily.loc[b].sort_values(by='quickflow')
+    dd = dd[dd.quickflow>0].tail(1000)
+    x.append(((de.max_ros_area>0.1)).sum()/len(de)*100)
+    y.append(((de.max_ros_area>0.1)&(de.delta_sca<0)).sum()/len(de)*100)
+    z.append(dd[(dd.ros_area>0.1)&(dd.SCA_trend<0)].SCA_trend.mean()*-100)
+    print(len(dd[(dd.ros_area>0.1)&(dd.SCA_trend<0)]))
+    
 
-polygons['p90'] = [np.percentile(data_events[data_events.pr_cum>3].pr_cum[b],99) for b in basins]
-polygons['pmean_ROS'] = [data_events[mask].pr_cum[b].mean() for b in basins]
 
-polygons['prros_over_prextreme'] = 100*polygons['pmean_ROS']/polygons['p90']
-polygons['trends'] = np.array(slopes)
-
+polygons['nrosdays_extrerunoffdays'] = x
+polygons['nmrosdays_extrerunoffdays'] = y
+# polygons['mean_melt'] = data_daily[(data_daily.ros_area>0.1)&(data_daily.SCA_trend<0)].SCA_trend.unstack().T.mean().unstack().T.mean()*100
+polygons['mean_melt'] = z
 #%%
+plt.rc('font',size=18)
 import cartopy.feature as cf
 from functions import add_labels
 import cmocean as cm
 
-fig,ax = plt.subplots(1,6,sharex=True,sharey=True,figsize=(13,10),
+fig,ax = plt.subplots(1,6,sharex=True,sharey=True,figsize=(17,10),
                       subplot_kw={'projection':ccrs.PlateCarree()})
 
-titles=['Mean ROS\ndays per\nyear',
-        'ROS/Rain\ndays\nratio',
-        'Mean runoff\non MROS days\nover extreme\nrunoff (Q99)',
-        # 'Maximum\nrunoff on\nROS days',
-        'Mean SCA\nloss on\nMROS days',
-        # 'Maximum SCA\nloss on\nROS days',
-        'Mean\nprecipitation\non MROS days\nover extreme\nprecipitation\n(P99)',
-        'Yearly ROS\ndays trend']
+titles=['(a)\nMean ROS days\nper year',
+        '(b)\nROS/Rain days\nratio',
+        '(c)\nMROS/Rain days\nratio',
+        '(d)\nROS/large runoff\nevents ratio',
+        '(e)\nMean $\Delta SCA$ loss \non MROS days',
+        '(f)\nROS days trend']
 cax = []
 for axis,c in zip(ax,range(len(titles))):
     axis.coastlines()
@@ -855,65 +875,88 @@ for axis,c in zip(ax,range(len(titles))):
     axis.add_feature(cf.BORDERS)
     
     box = axis.get_position()
-    cax.append(fig.add_axes([box.xmin,box.ymin-0.12,box.xmax-box.xmin,
-                             0.01]))
+    cax.append(fig.add_axes([box.xmin,box.ymin-0.08,box.xmax-box.xmin,
+                              0.01]))
     # for b,color in zip(basins,colors):
     #     gpd.GeoSeries(polygons.boundary.loc[b]).plot(ax=axis,
     #                                                   color=color,
     #                                                   linewidth=0.75)
     polygons.boundary.plot(ax=axis,color='k',linewidth=0.5)
-    axis.set_xticks([-72,-71,-70])
-    axis.set_xticklabels(["72°W","71°W","70°W"])
+    axis.set_xticks([])
+    axis.set_xticklabels([])
     axis.tick_params(axis="x",labelsize=14,rotation=45)
     axis.set_title(titles[c],loc='left',fontsize=15)
 
 polygons.plot(ax=ax[0],column='mean_ros_days',
               legend=True,
-              cax=cax[0],
+              cax=cax[0],vmin=0,vmax=20,
               legend_kwds={'orientation': "horizontal",
-                           'ticks':[5,15,25],
-                           'label':'(days)'})
+                            'ticks':[0,5,10,15,20],
+                            'label':'(days)'})
 polygons.plot(ax=ax[1],column='ros_rain_ratio',cmap='BuPu',
               legend=True,
-              cax=cax[1],vmin=0,
+              cax=cax[1],vmin=0,vmax=45,
               legend_kwds={'orientation': "horizontal",
-                           'ticks':[10,30,40],
-                           'label':'(%)'})
-polygons.plot(ax=ax[2],column='qros_over_qextreme',cmap=cm.cm.matter,
+                            'ticks':[0, 15, 30 ,45],
+                            'label':'(%)'})
+
+polygons.plot(ax=ax[2],column='mros_rain_ratio',cmap=cm.cm.tempo,
               legend=True,
-              cax=cax[2],vmax=80,
+              cax=cax[2],vmin=0,vmax=20,
               legend_kwds={'orientation': "horizontal",
-                           # 'ticks':[40,80],
-                           'label':'(%)'})
-# polygons.plot(ax=ax[3],column='max_runoff_ros_day', cmap=cm.cm.turbid,
-#               legend=True,vmax=300,
-#               cax=cax[3],
-#               legend_kwds={'orientation': "horizontal",
-#                            'ticks':[100,250],
-#                            'label':r'$(m3/s)$'})
-polygons.plot(ax=ax[3],column='mean_deltasca_ros_day', cmap=cm.cm.ice,
+                            'ticks':[0, 5, 10, 15, 20],
+                            'label':'(%)'})
+
+polygons.plot(ax=ax[3],column='nrosdays_extrerunoffdays',
+              cmap='jet',
               legend=True,
-              cax=cax[3],vmin=1,
+              cax=cax[3],vmin=0,vmax=100,
               legend_kwds={'orientation': "horizontal",
-                           'label':'(%)'})
-# polygons.plot(ax=ax[5],column='max_deltasca_ros_day', cmap=cm.cm.ice,
-#               legend=True,
-#               cax=cax[5],
-#               legend_kwds={'orientation': "horizontal",
-#                            'label':'(%)'})
-polygons.plot(ax=ax[4],column='prros_over_prextreme', cmap=cm.cm.haline,
-              legend=True,
-              cax=cax[4],vmax=20,
+                            'ticks':[0,25,50,75,100],
+                            'label':'(%)'})
+
+polygons.plot(ax=ax[4],column='mean_melt', cmap=cm.cm.ice,
+              legend=True,vmin=0,vmax=3,
+              cax=cax[4],
               legend_kwds={'orientation': "horizontal",
-                            'ticks':[10,15,20],
+                           'ticks':[0,1,2,3],
                            'label':'(%)'})
 
-polygons.plot(ax=ax[5],column='trends', cmap="Reds_r",
-              legend=True,
-              cax=cax[5],
+polygons.plot(ax=ax[-1],column='trends', cmap="coolwarm",
+              legend=True,norm=mpl.colors.TwoSlopeNorm(0,vmin=-0.6,vmax=0.3),
+              cax=cax[-1],vmax=0.3,vmin=-0.6,
               legend_kwds={'orientation': "horizontal",
-                            # 'ticks':[1,10],
-                            'label':'(days/year)'})
+                           'ticks':[-0.6,-0.3,0,0.3],
+                           'label':'(days/year)'})
+
+
+
+# polygons.plot(ax=ax[2],column='qros_over_qextreme',cmap=cm.cm.matter,
+#               legend=True,
+#               cax=cax[2],vmax=80,
+#               legend_kwds={'orientation': "horizontal",
+#                             # 'ticks':[40,80],
+#                             'label':'(%)'})
+# # polygons.plot(ax=ax[3],column='max_runoff_ros_day', cmap=cm.cm.turbid,
+# #               legend=True,vmax=300,
+# #               cax=cax[3],
+# #               legend_kwds={'orientation': "horizontal",
+# #                            'ticks':[100,250],
+# #                            'label':r'$(m3/s)$'})
+# polygons.plot(ax=ax[3],column='mean_deltasca_ros_day', cmap=cm.cm.ice,
+#               legend=True,
+#               cax=cax[3],vmin=1,
+#               legend_kwds={'orientation': "horizontal",
+#                             'label':'(%)'})
+
+# polygons.plot(ax=ax[4],column='prros_over_prextreme', cmap=cm.cm.haline,
+#               legend=True,
+#               cax=cax[4],vmax=20,
+#               legend_kwds={'orientation': "horizontal",
+#                             'ticks':[10,15,20],
+#                             'label':'(%)'})
+
+
 
 
 ax[0].set_yticks(np.arange(-33,-38,-1))

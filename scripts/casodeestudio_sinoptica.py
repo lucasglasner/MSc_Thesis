@@ -29,20 +29,20 @@ import sys
 sys.path.append("functions.py")
 
 # %%
-interval = slice("2013-08-01T00:00","2013-08-20T00:00")
+interval = slice("2008-05-24T00:00","2008-06-07T00:00")
 surface_vars = xr.open_dataset(
-    'datos/era5/caseofstudy_Ago2013/era5_Ago2013_surface.nc',
+    'datos/era5/caseofstudy_Jun2008/era5_Jun2008_surface.nc',
     chunks=None).metpy.parse_cf()
 upper_vars = xr.open_dataset(
-    'datos/era5/caseofstudy_Ago2013/era5_Ago2013_upper.nc').metpy.parse_cf()
+    'datos/era5/caseofstudy_Jun2008/era5_Jun2008_upper.nc').metpy.parse_cf()
 
 
-days = pd.date_range("2013-08-04T00:00", "2013-08-15T00:00", freq='d')
-
+days = pd.date_range(interval.start, interval.stop, freq='d')
+days = days+pd.Timedelta(hours=12)
 
 times = days.strftime('%b-%d\n%H:%MZ')
 times = list(times)
-times[0] = '2013\n'+times[0]
+times[0] = '2008\n'+times[0]
 
 lon, lat = surface_vars.lon, surface_vars.lat
 lon2d, lat2d = np.meshgrid(lon, lat)
@@ -69,7 +69,7 @@ for i, axis in enumerate(ax.ravel()):
 for i, axis in enumerate(ax.ravel()):
     CL = axis.contour(lon2d, lat2d,
                       gaussian_filter(surface_vars.msl.sel(time=days)[i, :, :]/100,10),
-                      levels=np.arange(998,1032,2),
+                      levels=np.arange(980,1032,2),
                       colors='k', alpha=0.3, rasterized=True)
     axis.clabel(CL, CL.levels[::3], fmt='%i', fontsize=11)
 
@@ -78,7 +78,7 @@ for i, axis in enumerate(ax.ravel()):
                                                      time=days).z[i, :, :]/9.8,
                                       2),
                       colors='k',
-                      levels=np.arange(5500,5730,30),
+                      levels=np.arange(5400,5730,30),
                       alpha=0.8)
     axis.clabel(CL, CL.levels[::4], fmt='%i', fontsize=11)
 
