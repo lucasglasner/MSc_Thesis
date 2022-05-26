@@ -1,3 +1,5 @@
 datos/
 .gitignore
 .spyproject/
+burocracia
+__pycache__
