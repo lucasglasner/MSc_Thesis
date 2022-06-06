@@ -22,7 +22,7 @@ data_daily = pd.read_csv('datos/TABLAS_DIARIAS_CRECIDAS_CC.csv',index_col=[0,1])
 data_daily = data_daily.loc[b]
 data_daily.index = pd.to_datetime(data_daily.index)
 data_daily['ros_day'] = (data_daily['ros_area']>0.1) & (data_daily['FL']>data_daily['SL'])
-
+#%%
 
 data_events = pd.read_csv('datos/TABLAS_EVENTOS_CRECIDAS.csv',index_col=[0,1])
 data_events = data_events.loc[b]
@@ -43,7 +43,7 @@ q.index = pd.to_datetime(q.index)
 SCA = pd.read_csv('datos/ianigla/'+b+'_SCA_s_comp.filtro_MA.3días.csv',
                   index_col=0)['SCA(%)']
 SCA.index = pd.to_datetime(SCA.index)
-SCA_trend = (SCA.shift(-1)-SCA.shift(1))/2
+SCA_trend = (SCA.shift(-2)-SCA.shift(2))/4
 SCA = SCA.resample('h').interpolate('cubicspline')
 SCA = SCA.where(SCA>0).fillna(0)
 SCA = SCA.where(SCA<100).fillna(100)
@@ -158,31 +158,22 @@ u300,v300 = u300.compute(),v300.compute()
 
 # %%
 
-rain_times = data_daily[data_daily.pr_cr2met>3].dropna()
-# rain_times = rain_times[rain_times.ros_area<0.01]
+rain_times = data_daily[data_daily.pr_cr2met>50]
+ros_times = rain_times[rain_times.ros_area>0.1]
+ros_times = ros_times[ros_times.delta_ros>0]
+ros_times = ros_times.sort_values(by='delta_ros')
+ros_times = ros_times.tail(20)
 
-# ros_times = rain_times[rain_times.ros_area>0.1].dropna()
-# ros_times = ros_times[ros_times.SCA_trend<0]
-# t1 = ros_times.ros_area.sort_values().tail(15
-# t2 = ros_times.quickflow.sort_values().tail(100000)
-# t3 = ros_times.SCA_trend.sort_values(ascending=False).tail(1500)
+rain_times = rain_times[(rain_times.ros_area<0.1)|(np.isnan(rain_times.ros_area))]
+rain_times = rain_times.sort_values(by='delta_ros').head(20)
 
-ros_times = basin_data.sort_values(by='ros_area').dropna()
-ros_times = ros_times[(ros_times.pr>3)]
-t1 = np.unique(ros_times.tail(50).index.date)
-t2 = np.unique(ros_times.sort_values(by='SCA_trend',ascending=False).tail(50000).index.date)
+#%%
 
-ros_times = set(t1) & set(t2)# & set(t3)
-ros_times = list(ros_times)
-ros_times = pd.to_datetime(ros_times)
-
-rain_times = list(rain_times.index)
-for r in ros_times:
-    if r in rain_times:
-        rain_times.remove(r)
-
+ros_times = ros_times.index
+rain_times = rain_times.index
 print(ros_times.shape)
-        #%%
+print(rain_times.shape)
+#%%
         
 from scipy.ndimage import gaussian_filter
 fig,ax = plt.subplots(2,4, sharex=True,sharey=True, figsize=(14,4),
@@ -200,19 +191,19 @@ plt.rc('font',size=18)
 lon,lat = u300.longitude,u300.latitude
 lon2d,lat2d = np.meshgrid(lon,lat)
 
-vmin=[(-3,0,-5,0),(-2,0,-3,0)]
-vmax=[(6,60,10,400),(2,45,6,250)]
-ticks=[([-3,0,3,6],[0,20,40,60],[-5,0,5,10],[0,200,400]),
-       ([-2,-1,0,1,2],[0,15,30,45],[-3,0,3,6],[0,100,200])]
+vmin=[(-3,0,-5,0),(-3,0,-5,0)]
+vmax=[(6,60,10,500),(6,60,10,500)]
+ticks=[([-3,0,3,6],[0,20,40,60],[-5,0,5,10],[0,250,500]),
+        ([-3,0,3,6],[0,20,40,60],[-5,0,5,10],[0,250,500])]
 
 for i,t in enumerate([ros_times,rain_times]):
 
     cs=ax[i,0].contour(lon2d,lat2d,
                        1e-3*msl_anomaly.sel(time=t).mean('time'),
                        transform=ccrs.PlateCarree(),
-                       colors='k', levels=np.arange(-3,3.2,0.1),
+                       colors='k', levels=np.arange(-3,3.2,0.2),
                        alpha=0.6)
-    ax[i,0].clabel(cs,cs.levels[::2])
+    # ax[i,0].clabel(cs,cs.levels[::2])
 
     mapat = ax[i,0].pcolormesh(lon2d,lat2d,
                                t900_anomaly.sel(time=t).mean('time'),
@@ -269,7 +260,7 @@ for i,t in enumerate([ros_times,rain_times]):
                         c='red', s=150, zorder=150)
 
 fig.text(0.06,0.75,'ROS',ha='center',va='center',rotation=90)
-fig.text(0.06,0.25,'MEAN',ha='center',va='center',rotation=90)
+fig.text(0.06,0.25,'NO-ROS',ha='center',va='center',rotation=90)
 ax[0,0].set_title('900hPa Temp. \nanomaly (°C)\n MSLP anomaly\n(contours)',fontsize=14,loc='right')
 ax[0,1].set_title('300hPa Winds (m/s)\n Z500 anomaly\n(contours)',fontsize=14,loc='right')
 ax[0,2].set_title('Precipitable water\nanomaly (mm)\n800hPa winds\n(vectors)',fontsize=14,loc='right')

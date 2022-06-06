@@ -220,11 +220,11 @@ def local_minimum_filter(ts, size):
 plt.rc('font', size=18)
 
 # %%
-date = "2008-06-04"
+date = "2013-08-11"
 # date = "%YR%"
 yr, month, day = [int(n) for n in date.split("-")]
-interval = slice(datetime.datetime(yr, month, day)-datetime.timedelta(days=9),
-                 datetime.datetime(yr, month, day)+datetime.timedelta(days=3))
+interval = slice(datetime.datetime(yr, month, day)-datetime.timedelta(days=10),
+                 datetime.datetime(yr, month, day)+datetime.timedelta(days=10))
 
 # interval = slice(datetime.datetime(2005, 10, 15),
 # datetime.datetime(2005, 10, 25))
@@ -418,7 +418,7 @@ for axis in ax:
     # axis.axvspan("2013-08-06T18:00", "2013-08-08T06:00", color='k', alpha=0.15)
     # axis.axvspan("2013-08-11", "2013-08-13", color='k', alpha=0.15)
     
-    axis.axvspan("2008-05-26T06:00", "2008-05-28T12:00", color='k', alpha=0.15)
+    axis.axvspan("2008-05-26T00:00", "2008-05-28T00:00", color='k', alpha=0.15)
     axis.axvspan("2008-06-03", "2008-06-05T12:00", color='k', alpha=0.15)
     axis.set_xlim(interval.start,
                   interval.stop-pd.Timedelta(hours=18))

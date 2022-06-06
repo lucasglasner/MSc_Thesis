@@ -146,7 +146,8 @@ plt.rc('font', size=18)
 ax = fig.add_subplot(121)
 ax1 = fig.add_subplot(122, sharey=ax)
 
-
+ax.text(0,1.04,'(a)',transform=ax.transAxes)
+ax1.text(0.94,1.04,'(b)',transform=ax1.transAxes)
 # coast profile
 ax.plot(coast.lat, H0_coast.mean(axis=0).rolling(5, center=True).mean(),
         color='tab:red', label='All Days')
@@ -235,7 +236,7 @@ ax1.set_xlabel('Longitude along the 33.64°S parallel (°W)')
 # ax1.grid(axis='y',ls=":")
 ax11 = ax1.twinx()
 ax11.set_yticks(ax1.get_yticks())
-ax1.set_yticklabels([])
+# ax1.set_yticklabels([])
 ax1.set_xticks([-74, -73, -72, -71, -70, -69, -68])
 ax1.set_xticklabels([-74, -73, -72, -71, -70, -69, -68])
 
@@ -252,7 +253,7 @@ ax2.add_feature(cf.LAND)
 ax2.add_feature(cf.OCEAN)
 
 
-# plt.savefig('plots/H0_coastprofile.pdf', dpi=150, bbox_inches='tight')
+plt.savefig('plots/H0_coastprofile.pdf', dpi=150, bbox_inches='tight')
 
 # %%
 seasons = H0.time.to_series().index.month

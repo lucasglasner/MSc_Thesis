@@ -29,20 +29,26 @@ import sys
 sys.path.append("functions.py")
 
 # %%
-interval = slice("2008-05-24T00:00","2008-06-07T00:00")
+interval = slice("2013-08-05T00:00","2013-08-13T00:00")
 surface_vars = xr.open_dataset(
-    'datos/era5/caseofstudy_Jun2008/era5_Jun2008_surface.nc',
+    'datos/era5/caseofstudy_Ago2013/era5_Ago2013_surface.nc',
     chunks=None).metpy.parse_cf()
 upper_vars = xr.open_dataset(
-    'datos/era5/caseofstudy_Jun2008/era5_Jun2008_upper.nc').metpy.parse_cf()
+    'datos/era5/caseofstudy_Ago2013/era5_Ago2013_upper.nc').metpy.parse_cf()
+# interval = slice("2008-05-24T00:00","2008-06-07T00:00")
+# surface_vars = xr.open_dataset(
+#     'datos/era5/caseofstudy_Jun2008/era5_Jun2008_surface.nc',
+#     chunks=None).metpy.parse_cf()
+# upper_vars = xr.open_dataset(
+#     'datos/era5/caseofstudy_Jun2008/era5_Jun2008_upper.nc').metpy.parse_cf()
 
 
 days = pd.date_range(interval.start, interval.stop, freq='d')
-days = days+pd.Timedelta(hours=12)
+days = days+pd.Timedelta(hours=0)
 
 times = days.strftime('%b-%d\n%H:%MZ')
 times = list(times)
-times[0] = '2008\n'+times[0]
+times[0] = '2013\n'+times[0]
 
 lon, lat = surface_vars.lon, surface_vars.lat
 lon2d, lat2d = np.meshgrid(lon, lat)
@@ -53,12 +59,12 @@ ivt = np.sqrt(surface_vars["p71.162"]**2+surface_vars["p72.162"])
 # dynamics, temperatura 900hPa, Z500, SLP
 # =============================================================================
 
-plt.rc('font', size=18)
-fig, ax = plt.subplots(3, 5, sharex=True, sharey=True,
+plt.rc('font', size=22)
+fig, ax = plt.subplots(3, 3, sharex=True, sharey=True,
                        subplot_kw={'projection': ccrs.PlateCarree()},
-                       figsize=(18, 10))
-
-add_labels(ax, [-25, -35, -45], [-90, -80, -70], linewidth=0)
+                       figsize=(12, 12))
+fig.tight_layout(pad=2)
+add_labels(ax, [-25, -35, -45], [-95, -80, -65], linewidth=0)
 for i, axis in enumerate(ax.ravel()):
     axis.coastlines(rasterized=True)
     axis.set_extent([-100, -60, -20, -50], crs=ccrs.PlateCarree())
@@ -78,7 +84,7 @@ for i, axis in enumerate(ax.ravel()):
                                                      time=days).z[i, :, :]/9.8,
                                       2),
                       colors='k',
-                      levels=np.arange(5400,5730,30),
+                      levels=np.arange(5400,5830,30),
                       alpha=0.8)
     axis.clabel(CL, CL.levels[::4], fmt='%i', fontsize=11)
 
@@ -112,26 +118,26 @@ ax[-1, 0].legend(frameon=False, loc=(0, -.5), fontsize=14, ncol=2)
 cax = fig.add_axes([box2.xmax*1.03, box2.ymin, 0.01, box1.ymax-box2.ymin])
 fig.colorbar(temp, cax=cax, label='900hPa Temperature (°C)',
              ticks=[-4, 0, 4, 8, 12, 16, 20])
-plt.savefig('plots/caseofstudy_Jun2008/synoptic_generaldynamics.pdf', dpi=150,
+plt.savefig('plots/caseofstudy_Aug2013/synoptic_generaldynamics.pdf', dpi=150,
             bbox_inches='tight')
+# plt.savefig('plots/caseofstudy_Jun2008/synoptic_generaldynamics.pdf', dpi=150,
+#             bbox_inches='tight')
 
 # %%
 # =============================================================================
 # dynamics, jet stream
 # =============================================================================
-
-plt.rc('font', size=18)
-fig, ax = plt.subplots(3, 5, sharex=True, sharey=True,
+plt.rc('font', size=22)
+fig, ax = plt.subplots(3, 3, sharex=True, sharey=True,
                        subplot_kw={'projection': ccrs.PlateCarree()},
-                       figsize=(18, 10))
-
-add_labels(ax, [-25, -35, -45], [-90, -80, -70], linewidth=0)
+                       figsize=(12, 12))
+fig.tight_layout(pad=2)
+add_labels(ax, [-25, -35, -45], [-95, -80, -65], linewidth=0)
 for i, axis in enumerate(ax.ravel()):
     axis.coastlines(rasterized=True)
     axis.set_extent([-100, -60, -20, -50], crs=ccrs.PlateCarree())
     # axis.gridlines(linestyle=":")
     axis.set_title(times[i], loc='left')
-
 
 for i, axis in enumerate(ax.ravel()):
 
@@ -163,7 +169,7 @@ ax[-1, 0].legend(frameon=False, loc=(0, -.5), fontsize=14, ncol=2)
 cax = fig.add_axes([box2.xmax*1.03, box2.ymin, 0.01, box1.ymax-box2.ymin])
 fig.colorbar(winds, cax=cax, label='300hPa Wind Speed (km/h)',
              ticks=np.arange(0, 250+25, 25))
-plt.savefig('plots/caseofstudy_Jun2008/synoptic_jetstream.pdf', dpi=150,
+plt.savefig('plots/caseofstudy_Aug2013/synoptic_jetstream.pdf', dpi=150,
             bbox_inches='tight')
 
 
@@ -171,21 +177,17 @@ plt.savefig('plots/caseofstudy_Jun2008/synoptic_jetstream.pdf', dpi=150,
 # =============================================================================
 # water advection1: IVT magnitude and IVT vectors
 # =============================================================================
-
-
-plt.rc('font', size=18)
-fig, ax = plt.subplots(3, 5, sharex=True, sharey=True,
+plt.rc('font', size=22)
+fig, ax = plt.subplots(3, 3, sharex=True, sharey=True,
                        subplot_kw={'projection': ccrs.PlateCarree()},
-                       figsize=(18, 10))
-
-
-add_labels(ax, [-25, -35, -45], [-90, -80, -70], linewidth=0)
+                       figsize=(12, 12))
+fig.tight_layout(pad=2)
+add_labels(ax, [-25, -35, -45], [-95, -80, -65], linewidth=0)
 for i, axis in enumerate(ax.ravel()):
     axis.coastlines(rasterized=True)
     axis.set_extent([-100, -60, -20, -50], crs=ccrs.PlateCarree())
     # axis.gridlines(linestyle=":")
     axis.set_title(times[i], loc='left')
-
 
 for i, axis in enumerate(ax.ravel()):
     # CL = axis.contour(lon2d, lat2d, surface_vars.tcrw[i, :, :],
@@ -220,7 +222,7 @@ cax = fig.add_axes([box2.xmax*1.03, box2.ymin, 0.01, box1.ymax-box2.ymin])
 fig.colorbar(pw, cax=cax,
              label='Integrated Water Vapor\nTransport $(kgm^{-1}s^{-1})$')
 
-plt.savefig('plots/caseofstudy_Jun2008/synoptic_ivtanalysis.pdf', dpi=150,
+plt.savefig('plots/caseofstudy_Aug2013/synoptic_ivtanalysis.pdf', dpi=150,
             bbox_inches='tight')
 
 # %%
@@ -228,13 +230,12 @@ plt.savefig('plots/caseofstudy_Jun2008/synoptic_ivtanalysis.pdf', dpi=150,
 # water advection2: 800hpa winds and TPW
 # =============================================================================
 
-plt.rc('font', size=18)
-fig, ax = plt.subplots(3, 5, sharex=True, sharey=True,
+plt.rc('font', size=22)
+fig, ax = plt.subplots(3, 3, sharex=True, sharey=True,
                        subplot_kw={'projection': ccrs.PlateCarree()},
-                       figsize=(18, 10))
-
-
-add_labels(ax, [-25, -35, -45], [-90, -80, -70], linewidth=0)
+                       figsize=(12, 12))
+fig.tight_layout(pad=2)
+add_labels(ax, [-25, -35, -45], [-95, -80, -65], linewidth=0)
 for i, axis in enumerate(ax.ravel()):
     axis.coastlines(rasterized=True)
     axis.set_extent([-100, -60, -20, -50], crs=ccrs.PlateCarree())
@@ -261,7 +262,7 @@ cax = fig.add_axes([box2.xmax*1.03, box2.ymin, 0.01, box1.ymax-box2.ymin])
 fig.colorbar(pw, cax=cax,
              label='Precipitable Water $(mm/h)$\n and 800hPa wind vectors')
 
-plt.savefig('plots/caseofstudy_Jun2008/synoptic_tpwanalysis.pdf', dpi=150,
+plt.savefig('plots/caseofstudy_Aug2013/synoptic_tpwanalysis.pdf', dpi=150,
             bbox_inches='tight')
 
 # %%

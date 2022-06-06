@@ -34,7 +34,7 @@ topo = topo.z.squeeze().assign_coords(
 topo_cortes = xr.open_dataset(
     "datos/topography/basins/RioMaipoEnElManzano_Cortes.nc").Band1
 # BASIN shapefile
-basin = gpd.read_file("datos/vector/RioMaipoEnElManzano.shp")
+basin = gpd.read_file("datos/vector/basins/RioMaipoEnElManzano.shp")
 
 # Basin hypsometry curve
 dem = xr.open_dataset(
@@ -81,39 +81,43 @@ SCA_ianigla.index = pd.to_datetime(SCA_ianigla.index)
 # %%
 
 
-SCOV_ERA5 = xr.open_dataset(
-    "datos/era5land/RioMaipoEnElManzano/snow_cover.nc", chunks="auto")
-SCOV_ERA5 = SCOV_ERA5.snowc[23:, :, :][::12, :, :][::2, :, :]
-SCA_ERA5 = pd.Series(np.empty(len(SCOV_ERA5.time)) *
-                     np.nan, index=SCOV_ERA5.time.values)
+# SCOV_ERA5 = xr.open_dataset(
+#     "datos/era5land/RioMaipoEnElManzano/snow_cover.nc", chunks="auto")
+# SCOV_ERA5 = SCOV_ERA5.snowc[23:, :, :][::12, :, :][::2, :, :]
+# SCA_ERA5 = pd.Series(np.empty(len(SCOV_ERA5.time)) *
+#                      np.nan, index=SCOV_ERA5.time.values)
 
-for th in [20, 45, 70, 95]:
-    t1 = datetime.datetime.now()
-    for i, time in enumerate(SCOV_ERA5.time.values):
-        sca = (SCOV_ERA5[i, :, :] > th).values.sum()/49
-        SCA_ERA5[time] = sca
+# for th in [20, 45, 70, 95]:
+#     t1 = datetime.datetime.now()
+#     for i, time in enumerate(SCOV_ERA5.time.values):
+#         sca = (SCOV_ERA5[i, :, :] > th).values.sum()/49
+#         SCA_ERA5[time] = sca
 
-    SCA_ERA5 = SCA_ERA5.resample("d").mean()*100
-    SCA_ERA5 = SCA_ERA5.reindex(SCA_ianigla.index)
+#     SCA_ERA5 = SCA_ERA5.resample("d").mean()*100
+#     SCA_ERA5 = SCA_ERA5.reindex(SCA_ianigla.index)
 
-    t2 = datetime.datetime.now()
-    dt = t2-t1
-    print(dt)
-    SCA_ERA5.dropna().to_csv(
-        "datos/era5land/RioMaipoEnElManzano/SCA_ERA5LAND_"+str(th)+".csv")
+#     t2 = datetime.datetime.now()
+#     dt = t2-t1
+#     print(dt)
+#     SCA_ERA5.dropna().to_csv(
+#         "datos/era5land/RioMaipoEnElManzano/SCA_ERA5LAND_"+str(th)+".csv")
 
-s = [pd.read_csv(i, index_col=0) for i in glob(
-    "datos/era5land/RioMaipoEnElManzano/SCA_ERA5LAND*")]
-s = pd.concat(s, axis=1)
-s.columns = ["20", "45", "70", "95"]
-s.to_csv("datos/era5land/RioMaipoEnElManzano/SCA_ERA5LAND_threshold.csv")
+# s = [pd.read_csv(i, index_col=0) for i in glob(
+#     "datos/era5land/RioMaipoEnElManzano/SCA_ERA5LAND*")]
+# s = pd.concat(s, axis=1)
+# s.columns = ["20", "45", "70", "95"]
+# s.to_csv("datos/era5land/RioMaipoEnElManzano/SCA_ERA5LAND_threshold.csv")
+
+SCA_ERA5 = pd.read_csv('datos/era5land/RioMaipoEnElManzano/SCA_ERA5LAND_threshold.csv')
+SCA_ERA5.index = pd.to_datetime(SCA_ERA5.fecha)
+SCA_ERA5.drop('fecha',inplace=True,axis=1)
 
 # %%
 
 
 try:
     sca_cortes = pd.read_csv(
-        "datos/ANDES_SWE_Cortes/maipomanzano_SCA.csv", index_col=0)
+        "datos/ANDES_SWE_Cortes/maipomanzano/maipomanzano_SCA.csv", index_col=0)
     sca_cortes.index = pd.to_datetime(sca_cortes.index)
 except:
     SWE_cortes = [xr.open_dataset(path)
@@ -232,8 +236,8 @@ ax2.set_xlabel("Day of year")
 ax2.set_xticks(np.arange(0, 366)[::50])
 ax2.set_ylabel("fSCA Annual Cycle (%)")
 
-plt.savefig("plots/maipomanzano/cortes_SCA_study_" +
-            str(SCA_cortes.name)+"_.pdf", dpi=150, bbox_inches="tight")
+# plt.savefig("plots/maipomanzano/cortes_SCA_study_" +
+#             str(SCA_cortes.name)+"_.pdf", dpi=150, bbox_inches="tight")
 
 # %%
 

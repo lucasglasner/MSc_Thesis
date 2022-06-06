@@ -35,11 +35,11 @@ import cartopy.feature as cf
 # =============================================================================
 # big time interval and graph time interval
 # =============================================================================
-date = "2013-08-11"
+date = "2008-06-04"
 # date = "%YR%"
 yr, month, day = [int(n) for n in date.split("-")]
-interval = slice(datetime.datetime(yr, month, day)-datetime.timedelta(days=9),
-                 datetime.datetime(yr, month, day)+datetime.timedelta(days=9))
+interval = slice(datetime.datetime(yr, month, day)-datetime.timedelta(days=10),
+                 datetime.datetime(yr, month, day)+datetime.timedelta(days=3))
 
 # %%
 # =============================================================================
@@ -98,19 +98,21 @@ pluv_area = pd.DataFrame(pluv_area, columns=pr.index, index=areas.index).T
 # nonpluv_area = pd.DataFrame(nonpluv_area, columns=pr.index, index=pr.columns).T
 
 max_pluv_area = pluv_area.where(pr > 0.1).max()
+
+mpp_pa = (pluv_area["2008-06-02":].where(pr > 0.1)*pr).sum()/pr.sum()/areas
 # max_pluv_area.index = basin_attributes.gauge_name
 # %%
 # =============================================================================
 # BASIN POLYGONS
 # =============================================================================
-paths = glob('datos/vector/basins/*.shp')
+paths = glob('datos/vector/basins/mains/*.shp')
 polygons = pd.concat([gpd.read_file(p) for p in paths])
 polygons.index = polygons.gauge_id
 # polygons = polygons.loc[basin_attributes.index]
 polygons.gauge_name = basin_attributes.gauge_name
 
 polygons['max_pluv_area'] = (max_pluv_area.loc[polygons.index]/areas.loc[polygons.index]).values
-
+polygons['mpp_pa'] = mpp_pa.loc[polygons.index]
 
 # %%
 plt.rc('font', size=18)
@@ -127,12 +129,13 @@ polygons.index = polygons.gauge_name
 gauges = ['Rio Aconcagua En Chacabuquito',
           'Rio Maipo En El Manzano',
           'Rio Teno Despues De Junta Con Claro',
-          'Rio Lircay En Puente Las Rastras',
+          'Rio Colorado En Junta Con Palos',
           'Rio Melado En El Salto',
           'Rio Uble En San Fabian N 2']
-polygons = polygons.loc[gauges]
+# polygons.plot(polygons.gauge_name, ax=ax,facecolor=None)
+# polygons = polygons.loc[gauges]
 n = 0.25
-polygons.plot(column='max_pluv_area',
+polygons.plot(column='mpp_pa',
               ax=ax,
               transform=ccrs.PlateCarree(),
               cmap='BuPu_r',
@@ -140,11 +143,11 @@ polygons.plot(column='max_pluv_area',
               legend_kwds={'orientation': 'horizontal',
                            'fraction': 0.021,
                            'pad': 0.08,
-                           'label': 'Maximum pluvial\narea during rain $(-)$',
-                           'ticks': [0.4, 0.55, 0.7, 0.85, 1.0]})
+                           'label': 'Mean pluvial\narea during rain $(-)$',
+                           'ticks': [0.2, 0.3, 0.4,0.5,0.6]})
 
 
-# polygons.plot(polygons.gauge_name, ax=ax,facecolor=None)
+
 
 polygons.boundary.plot(ax=ax, lw=0.5, color='k', transform=ccrs.PlateCarree())
 
@@ -222,7 +225,7 @@ axes[-2].set_ylabel('Runoff $(m^3/s)$')
 # axes[2].xaxis.set_minor_locator(mpl.dates.HourLocator(byhour=np.arange(0, 24, 6)))
 # axes.tick_params(axis='x', which='major', rotation=45)
 
-plt.savefig('plots/otroscasosdeestudio/runoff_basins_'+date+'.pdf',
-            dpi=150, bbox_inches='tight')
-# plt.savefig('plots/caseofstudy_Jun2010/runoff_basins.pdf',
+# plt.savefig('plots/otroscasosdeestudio/runoff_basins_'+date+'.pdf',
 #             dpi=150, bbox_inches='tight')
+plt.savefig('plots/caseofstudy_Jun2008/runoff_basins.pdf',
+            dpi=150, bbox_inches='tight')

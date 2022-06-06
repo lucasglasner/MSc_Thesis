@@ -347,7 +347,7 @@ titles = [datetime.datetime.strptime(d, '%Y-%m-%d').strftime('%b-%d')
           for d in days]
 titles[0] = date[:4]+'\n'+titles[0]
 fig, ax = plt.subplots(3, 7, subplot_kw={'projection': ccrs.PlateCarree()},
-                       figsize=(13, 10))
+                       figsize=(13, 14))
 # fig.tight_layout(pad=1)
 plt.rc('font', size=18)
 lon2d, lat2d = np.meshgrid(ROS.lon, ROS.lat)
@@ -359,7 +359,7 @@ for axis in ax.ravel():
     axis.add_feature(cf.LAND, color='k', alpha=0.2, rasterized=True)
     basins.boundary.plot(ax=axis, color='k', lw=0.5)
     maipobasin.boundary.plot(ax=axis,
-                             color='tab:red', lw=0.5)
+                              color='tab:red', lw=0.5)
 
 for i in range(len(days)):
     pr_plot = ax[0, i].pcolormesh(lon2d, lat2d,
@@ -381,8 +381,8 @@ for i in range(len(days)):
                                     rasterized=True,
                                     cmap='RdBu',
                                     norm=mpl.colors.TwoSlopeNorm(vmin=-10.,
-                                                                 vcenter=0.,
-                                                                 vmax=40),
+                                                                  vcenter=0.,
+                                                                  vmax=40),
                                     transform=ccrs.PlateCarree())
     # SWE_plot = ax[3, i].pcolormesh(lon2d, lat2d,
     #                                 SWE.sel(time=days[i]),
@@ -443,8 +443,8 @@ for axis in ax[:, 0]:
     gl.top_labels = False
     gl.right_labels = False
     gl.bottom_labels = False
-# plt.savefig('plots/caseofstudy_Jun2008/pr_swe_fl_maps_maipomanzano.pdf',
-            # dpi=150, bbox_inches='tight')
 plt.savefig('plots/caseofstudy_Jun2008/pr_swe_fl_maps_maipomanzano.pdf',
             dpi=150, bbox_inches='tight')
+# plt.savefig('plots/caseofstudy_Jun2008/pr_swe_fl_maps_maipomanzano.pdf',
+            # dpi=150, bbox_inches='tight')
 # 
